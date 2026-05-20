@@ -1,0 +1,3028 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ConciliaçAO — Conciliações Bancárias Inteligentes</title>
+<meta name="description" content="Sistema de conciliação bancária automático para Angola. Reduza o tempo de conciliação em 90%.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%231a1a2e'/><text y='.9em' font-size='60' x='18'>⚖️</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  /* Linear-matched surfaces */
+  --bg: #08090a;
+  --bg2: #0f1011;
+  --bg3: #161718;
+  --bg4: #1c1d1f;
+
+  /* Linear-matched borders */
+  --border: #23252a;
+  --border-bright: #323334;
+
+  /* Brand accent — Gold replaces Linear's Neon Lime */
+  --gold: #f0c040;
+  --gold-dim: rgba(240,192,64,0.08);
+  --gold-border: rgba(240,192,64,0.22);
+  --gold-glow: rgba(240,192,64,0.18);
+
+  /* Semantic colours */
+  --green: #27a644;
+  --green-dim: rgba(39,166,68,0.1);
+  --red: #eb5757;
+  --red-dim: rgba(235,87,87,0.1);
+  --blue: #5e6ad2;
+  --blue-dim: rgba(94,106,210,0.1);
+  --amber: #f59e0b;
+
+  /* Text — Linear's porcelain/storm cloud system */
+  --text: #f7f8f8;
+  --text-soft: #8a8f98;
+  --text-dim: #62666d;
+
+  /* Shape — Linear uses 6px everywhere */
+  --radius: 6px;
+  --radius-card: 6px;
+  --radius-pill: 9999px;
+
+  /* Shadow system from Linear */
+  --shadow-sm: rgba(0,0,0,0.4) 0px 2px 4px 0px;
+  --shadow-md: rgba(0,0,0,0.2) 0px 0px 12px 0px inset;
+  --shadow-inset: rgb(35,37,42) 0px 0px 0px 1px inset;
+  --shadow-xl: rgba(8,9,10,0.6) 0px 4px 32px 0px;
+
+  /* Typography */
+  --font-display: 'Bricolage Grotesque', sans-serif;
+  --font-mono: 'Geist Mono', monospace;
+  --font-body: 'Instrument Sans', sans-serif;
+
+  /* Spacing — Linear's 4px base unit */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+}
+body { font-family: var(--font-body); background: var(--bg); color: var(--text); overflow-x: hidden; min-height: 100vh; }
+.view { display: none; min-height: 100vh; flex-direction: column; }
+.view.active { display: flex; }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width:4px; } ::-webkit-scrollbar-track { background:transparent; } ::-webkit-scrollbar-thumb { background:var(--border-bright); border-radius:2px; }
+
+/* ── TOAST ── */
+.toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(80px); background:var(--bg3); border:1px solid var(--border-bright); color:var(--text); padding:10px 20px; border-radius:var(--radius); font-size:12px; font-weight:500; z-index:9999; transition:transform .25s cubic-bezier(0.16,1,0.3,1); white-space:nowrap; pointer-events:none; box-shadow:var(--shadow-xl); letter-spacing:-0.1px; }
+.toast.show { transform:translateX(-50%) translateY(0); }
+
+/* ── BUTTONS ── */
+.btn { display:inline-flex; align-items:center; gap:6px; padding:8px 16px; border-radius:var(--radius); font-size:13px; font-weight:500; cursor:pointer; transition:all .15s; border:none; font-family:var(--font-body); text-decoration:none; letter-spacing:-0.1px; }
+.btn-gold { background:var(--gold); color:#000; box-shadow:var(--shadow-sm); }
+.btn-gold:hover { background:#f5d060; box-shadow:0 0 0 2px rgba(240,192,64,0.25), var(--shadow-sm); }
+.btn-outline { background:transparent; color:var(--text); border:1px solid var(--border-bright); }
+.btn-outline:hover { background:rgba(255,255,255,0.04); border-color:var(--text-soft); }
+.btn-ghost { background:rgba(255,255,255,0.03); color:var(--text-soft); border:1px solid var(--border); }
+.btn-ghost:hover { background:rgba(255,255,255,0.06); color:var(--text); }
+.btn-danger { background:var(--red-dim); color:var(--red); border:1px solid rgba(235,87,87,0.2); }
+.btn-success { background:var(--green-dim); color:var(--green); border:1px solid rgba(39,166,68,0.2); }
+.btn-submit { width:100%; padding:12px; border-radius:var(--radius); background:var(--gold); color:#000; font-size:14px; font-weight:600; border:none; cursor:pointer; font-family:var(--font-body); transition:all .15s; letter-spacing:-0.1px; box-shadow:var(--shadow-sm); }
+.btn-submit:hover { background:#f5d060; box-shadow:0 0 0 2px rgba(240,192,64,0.2), var(--shadow-sm); }
+.btn-submit:disabled { opacity:0.4; cursor:not-allowed; }
+
+/* ── FORMS ── */
+.form-group { margin-bottom:14px; }
+.form-label { display:block; font-size:11px; font-weight:600; color:var(--text-soft); margin-bottom:5px; text-transform:uppercase; letter-spacing:0.5px; }
+.form-input, .form-select { width:100%; padding:9px 12px; border-radius:var(--radius); border:1px solid var(--border); background:var(--bg3); font-size:13px; font-family:var(--font-body); color:var(--text); outline:none; transition:border .15s, box-shadow .15s; letter-spacing:-0.1px; }
+.form-input:focus, .form-select:focus { border-color:var(--gold); box-shadow:0 0 0 2px var(--gold-dim); }
+.form-input::placeholder { color:var(--text-dim); }
+.form-select option { background:var(--bg3); }
+.error-msg { background:var(--red-dim); border:1px solid rgba(235,87,87,0.25); color:#fca5a5; padding:9px 12px; border-radius:var(--radius); font-size:12px; margin-bottom:14px; display:none; }
+.error-msg.show { display:block; }
+
+/* ══ LANDING ══ */
+#landing { background:var(--bg); }
+.landing-grid-bg { position:fixed; inset:0; background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px); background-size:40px 40px; pointer-events:none; z-index:0; opacity:0.5; }
+.landing-orb { position:fixed; border-radius:50%; filter:blur(120px); opacity:0.08; pointer-events:none; z-index:0; }
+.orb-1 { width:700px; height:700px; background:var(--gold); top:-300px; right:-150px; }
+.orb-2 { width:500px; height:500px; background:var(--blue); bottom:-150px; left:-150px; }
+
+nav { position:relative; z-index:10; display:flex; align-items:center; justify-content:space-between; padding:16px 48px; border-bottom:1px solid var(--border); backdrop-filter:blur(12px); background:rgba(8,9,10,0.8); }
+.nav-logo { font-family:var(--font-display); font-size:20px; font-weight:800; color:var(--text); letter-spacing:-0.5px; }
+.nav-logo span { color:var(--gold); }
+.nav-links { display:flex; gap:8px; align-items:center; }
+
+.hero { position:relative; z-index:2; display:flex; flex-direction:column; align-items:center; text-align:center; padding:96px 40px 72px; gap:24px; }
+.hero-badge { display:inline-flex; align-items:center; gap:6px; background:var(--gold-dim); border:1px solid var(--gold-border); color:var(--gold); padding:5px 14px; border-radius:var(--radius); font-size:11px; font-weight:600; font-family:var(--font-mono); letter-spacing:0.5px; }
+.hero h1 { font-family:var(--font-display); font-size:clamp(40px,6.5vw,84px); line-height:1.0; letter-spacing:-3px; font-weight:800; max-width:860px; }
+.hero h1 em { color:var(--gold); font-style:normal; }
+.hero p { font-size:16px; color:var(--text-soft); max-width:480px; line-height:1.7; letter-spacing:-0.1px; }
+.hero-ctas { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
+.hero-stats { display:flex; gap:40px; margin-top:16px; flex-wrap:wrap; justify-content:center; padding:20px 36px; background:rgba(255,255,255,0.02); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow-inset); }
+.h-stat { text-align:center; }
+.h-stat-num { font-family:var(--font-display); font-size:28px; font-weight:800; color:var(--gold); letter-spacing:-1px; }
+.h-stat-label { font-size:10px; color:var(--text-dim); margin-top:3px; text-transform:uppercase; letter-spacing:1px; }
+
+.section { padding:72px 48px; position:relative; z-index:2; }
+.section-chip { display:inline-block; background:var(--gold-dim); border:1px solid var(--gold-border); color:var(--gold); font-size:10px; font-weight:700; padding:3px 10px; border-radius:var(--radius); letter-spacing:1px; text-transform:uppercase; margin-bottom:14px; font-family:var(--font-mono); }
+.section h2 { font-family:var(--font-display); font-size:clamp(26px,3.5vw,48px); line-height:1.05; letter-spacing:-1.5px; font-weight:800; max-width:560px; margin-bottom:40px; }
+
+.features-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:1px; background:var(--border); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow-xl); }
+.feat-card { background:var(--bg2); padding:28px; transition:background .15s; }
+.feat-card:hover { background:var(--bg3); }
+.feat-icon { width:36px; height:36px; border-radius:var(--radius); background:var(--gold-dim); border:1px solid var(--gold-border); display:flex; align-items:center; justify-content:center; font-size:16px; margin-bottom:16px; }
+.feat-card h3 { font-family:var(--font-display); font-size:15px; font-weight:700; margin-bottom:6px; letter-spacing:-0.2px; }
+.feat-card p { font-size:13px; color:var(--text-soft); line-height:1.65; }
+
+.how-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:1px; background:var(--border); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
+.how-step { position:relative; padding:24px; background:var(--bg2); transition:background .15s; }
+.how-step:hover { background:var(--bg3); }
+.how-num { font-family:var(--font-display); font-size:60px; font-weight:800; color:rgba(240,192,64,0.06); line-height:1; margin-bottom:-16px; }
+.how-step h3 { font-family:var(--font-display); font-size:15px; font-weight:700; margin-bottom:6px; letter-spacing:-0.2px; }
+.how-step p { font-size:13px; color:var(--text-soft); line-height:1.65; }
+
+#pricing-section { background:var(--bg2); }
+.pricing-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:1px; background:var(--border); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
+.plan-card { background:var(--bg2); padding:32px; transition:background .15s; position:relative; }
+.plan-card:hover { background:var(--bg3); }
+.plan-card.featured { background:var(--bg3); border-left:1px solid var(--gold-border); border-right:1px solid var(--gold-border); }
+.plan-card.featured::before { content:'POPULAR'; position:absolute; top:16px; right:16px; background:var(--gold); color:#000; font-size:9px; font-weight:800; padding:3px 10px; border-radius:var(--radius); letter-spacing:1px; font-family:var(--font-mono); }
+.plan-name { font-family:var(--font-display); font-size:16px; font-weight:700; margin-bottom:8px; letter-spacing:-0.2px; }
+.plan-price { font-family:var(--font-display); font-size:40px; font-weight:800; color:var(--gold); line-height:1; margin-bottom:4px; letter-spacing:-2px; }
+.plan-price span { font-size:13px; font-family:var(--font-body); color:var(--text-soft); font-weight:400; letter-spacing:0; }
+.plan-desc { font-size:12px; color:var(--text-soft); margin-bottom:20px; }
+.plan-features { list-style:none; display:flex; flex-direction:column; gap:8px; margin-bottom:24px; }
+.plan-features li { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-soft); }
+.plan-features li::before { content:'✓'; color:var(--gold); font-weight:700; flex-shrink:0; }
+
+footer { background:var(--bg); border-top:1px solid var(--border); padding:32px 48px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; position:relative; z-index:2; }
+.footer-logo { font-family:var(--font-display); font-size:16px; font-weight:800; letter-spacing:-0.3px; }
+.footer-logo span { color:var(--gold); }
+.footer-copy { font-size:12px; color:var(--text-dim); }
+
+/* ══ AUTH ══ */
+#login-page, #register-page { background:var(--bg); align-items:center; justify-content:center; position:relative; overflow:hidden; }
+.auth-card { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius); padding:36px; width:100%; max-width:400px; position:relative; z-index:2; box-shadow:var(--shadow-xl); }
+.auth-logo { font-family:var(--font-display); font-size:22px; font-weight:800; margin-bottom:4px; letter-spacing:-0.5px; }
+.auth-logo span { color:var(--gold); }
+.auth-subtitle { font-size:12px; color:var(--text-soft); margin-bottom:24px; }
+.divider { display:flex; align-items:center; gap:10px; margin:18px 0; color:var(--text-dim); font-size:11px; }
+.divider::before, .divider::after { content:''; flex:1; height:1px; background:var(--border); }
+.auth-switch { text-align:center; margin-top:16px; font-size:12px; color:var(--text-soft); }
+
+/* ══ APP LAYOUT ══ */
+#app-main { flex-direction:row; background:var(--bg); }
+.sidebar { width:232px; background:var(--bg2); border-right:1px solid var(--border); display:flex; flex-direction:column; padding:20px 0; flex-shrink:0; height:100vh; position:sticky; top:0; overflow-y:auto; }
+.sb-logo { padding:0 16px; font-family:var(--font-display); font-size:18px; font-weight:800; color:var(--text); margin-bottom:6px; letter-spacing:-0.5px; }
+.sb-logo span { color:var(--gold); }
+.sb-version { padding:0 16px; font-family:var(--font-mono); font-size:10px; color:var(--text-dim); margin-bottom:24px; letter-spacing:0.5px; }
+.sb-section { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:1.5px; color:var(--text-dim); padding:10px 16px 5px; }
+.sb-item { display:flex; align-items:center; gap:8px; padding:8px 10px; margin:0 6px; border-radius:var(--radius); cursor:pointer; font-size:13px; font-weight:400; color:var(--text-soft); transition:all .1s; border:1px solid transparent; letter-spacing:-0.1px; }
+.sb-item:hover { background:rgba(255,255,255,0.04); color:var(--text); }
+.sb-item.active { background:var(--gold-dim); border-color:var(--gold-border); color:var(--gold); }
+.sb-item .sb-icon { font-size:14px; width:18px; text-align:center; }
+.sb-badge { background:var(--red); color:white; font-size:10px; font-weight:700; padding:1px 5px; border-radius:var(--radius); margin-left:auto; font-family:var(--font-mono); }
+.sb-footer { margin-top:auto; padding:14px 6px 0; border-top:1px solid var(--border); }
+.sb-user { display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:var(--radius); background:rgba(255,255,255,0.02); border:1px solid var(--border); }
+.sb-avatar { width:28px; height:28px; border-radius:var(--radius); background:var(--gold); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; color:#000; flex-shrink:0; }
+.sb-uname { font-size:12px; font-weight:600; color:var(--text); letter-spacing:-0.1px; }
+.sb-urole { font-size:10px; color:var(--text-dim); }
+
+.main-area { flex:1; overflow-y:auto; display:flex; flex-direction:column; }
+.topbar { padding:12px 24px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; background:rgba(8,9,10,0.9); position:sticky; top:0; z-index:10; backdrop-filter:blur(8px); }
+.topbar-title { font-family:var(--font-display); font-size:20px; font-weight:800; color:var(--text); letter-spacing:-0.5px; }
+.topbar-right { display:flex; align-items:center; gap:10px; }
+.page { padding:20px 24px; display:none; flex-direction:column; gap:16px; }
+.page.active { display:flex; }
+
+/* ── CARDS ── */
+.card { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius); padding:16px; box-shadow:var(--shadow-sm); }
+.card-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+.card-title { font-family:var(--font-mono); font-size:11px; font-weight:500; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.5px; }
+
+/* ── KPIs ── */
+.kpi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:1px; background:var(--border); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
+.kpi { background:var(--bg2); padding:16px; transition:background .1s; }
+.kpi:hover { background:var(--bg3); }
+.kpi-icon { width:32px; height:32px; border-radius:var(--radius); display:flex; align-items:center; justify-content:center; font-size:15px; margin-bottom:12px; }
+.kpi-label { font-size:10px; color:var(--text-dim); font-weight:500; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; font-family:var(--font-mono); }
+.kpi-value { font-family:var(--font-display); font-size:28px; font-weight:800; color:var(--text); letter-spacing:-1px; }
+.kpi-sub { font-size:11px; color:var(--green); margin-top:3px; }
+.kpi-sub.warn { color:var(--amber); }
+.kpi-sub.danger { color:var(--red); }
+
+/* ── TABLE ── */
+.table-wrap { overflow-x:auto; }
+table { width:100%; border-collapse:collapse; }
+thead th { font-size:10px; font-weight:600; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.5px; padding:8px 14px; text-align:left; border-bottom:1px solid var(--border); font-family:var(--font-mono); }
+tbody td { padding:11px 14px; font-size:13px; border-bottom:1px solid rgba(35,37,42,0.6); color:var(--text-soft); letter-spacing:-0.1px; }
+tbody tr:last-child td { border-bottom:none; }
+tbody tr:hover td { background:rgba(255,255,255,0.015); color:var(--text); }
+.mono { font-family:var(--font-mono); font-size:12px; letter-spacing:-0.1px; }
+
+/* ── STATUS BADGES ── */
+.badge { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:600; font-family:var(--font-mono); letter-spacing:0.3px; }
+.badge-green { background:rgba(39,166,68,0.1); color:var(--green); border:1px solid rgba(39,166,68,0.2); }
+.badge-red { background:var(--red-dim); color:var(--red); border:1px solid rgba(235,87,87,0.2); }
+.badge-amber { background:rgba(245,158,11,0.1); color:var(--amber); border:1px solid rgba(245,158,11,0.2); }
+.badge-blue { background:var(--blue-dim); color:var(--blue); border:1px solid rgba(94,106,210,0.2); }
+.badge-gold { background:var(--gold-dim); color:var(--gold); border:1px solid var(--gold-border); }
+
+/* ── MATCHING ── */
+.match-container { display:grid; grid-template-columns:1fr auto 1fr; gap:12px; align-items:start; }
+.match-col-title { font-size:10px; font-weight:600; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px; margin-bottom:10px; font-family:var(--font-mono); }
+.match-item { background:var(--bg3); border:1px solid var(--border); border-radius:var(--radius); padding:12px; margin-bottom:6px; cursor:pointer; transition:all .1s; box-shadow:var(--shadow-sm); }
+.match-item:hover { border-color:var(--gold-border); }
+.match-item.selected { border-color:var(--gold); background:var(--gold-dim); }
+.match-item.matched { border-color:rgba(39,166,68,0.35); background:rgba(39,166,68,0.06); cursor:default; }
+.match-ref { font-family:var(--font-mono); font-size:10px; color:var(--text-dim); margin-bottom:3px; }
+.match-desc { font-size:13px; font-weight:600; color:var(--text); margin-bottom:3px; letter-spacing:-0.1px; }
+.match-amount { font-family:var(--font-display); font-size:16px; font-weight:800; letter-spacing:-0.5px; }
+.match-amount.credit { color:var(--green); }
+.match-amount.debit { color:var(--red); }
+.match-date { font-size:10px; color:var(--text-dim); font-family:var(--font-mono); }
+.match-connector { display:flex; flex-direction:column; align-items:center; gap:6px; padding-top:36px; }
+.match-btn { background:var(--gold); color:#000; border:none; border-radius:var(--radius); width:36px; height:36px; cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center; transition:all .15s; box-shadow:var(--shadow-sm); }
+.match-btn:hover { box-shadow:0 0 0 2px rgba(240,192,64,0.25), var(--shadow-sm); }
+.match-btn:disabled { background:var(--border-bright); color:var(--text-dim); cursor:not-allowed; box-shadow:none; }
+
+/* ── UPLOAD ZONE ── */
+.upload-zone { border:1px dashed var(--border-bright); border-radius:var(--radius); padding:36px; text-align:center; cursor:pointer; transition:all .15s; background:var(--bg3); }
+.upload-zone:hover, .upload-zone.drag-over { border-color:var(--gold); background:var(--gold-dim); }
+.upload-icon { font-size:32px; margin-bottom:10px; }
+.upload-title { font-family:var(--font-display); font-size:16px; font-weight:700; margin-bottom:5px; letter-spacing:-0.3px; }
+.upload-sub { font-size:12px; color:var(--text-soft); }
+.upload-formats { display:flex; gap:6px; justify-content:center; margin-top:14px; flex-wrap:wrap; }
+.format-chip { background:rgba(255,255,255,0.04); border:1px solid var(--border); padding:3px 8px; border-radius:var(--radius); font-size:10px; font-family:var(--font-mono); color:var(--text-soft); }
+
+/* ── MODAL ── */
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.6); display:flex; align-items:center; justify-content:center; z-index:100; opacity:0; pointer-events:none; transition:opacity .15s; padding:20px; backdrop-filter:blur(4px); }
+.modal-overlay.open { opacity:1; pointer-events:all; }
+.modal { background:var(--bg2); border:1px solid var(--border-bright); border-radius:var(--radius); padding:28px; width:100%; max-width:480px; position:relative; transform:translateY(12px); transition:transform .2s cubic-bezier(0.16,1,0.3,1); max-height:90vh; overflow-y:auto; box-shadow:var(--shadow-xl); }
+.modal-overlay.open .modal { transform:translateY(0); }
+.modal-close { position:absolute; top:12px; right:12px; background:rgba(255,255,255,0.05); border:1px solid var(--border); border-radius:var(--radius); width:26px; height:26px; cursor:pointer; font-size:12px; display:flex; align-items:center; justify-content:center; color:var(--text-soft); transition:all .1s; }
+.modal-close:hover { background:rgba(255,255,255,0.09); color:var(--text); }
+.modal h2 { font-family:var(--font-display); font-size:20px; font-weight:800; margin-bottom:3px; letter-spacing:-0.5px; }
+.modal p { font-size:12px; color:var(--text-soft); margin-bottom:18px; }
+
+/* ── PROGRESS BAR ── */
+.progress-bar { height:3px; background:var(--border); border-radius:2px; overflow:hidden; margin-top:8px; }
+.progress-fill { height:100%; background:var(--gold); border-radius:2px; transition:width .5s cubic-bezier(0.16,1,0.3,1); }
+
+/* ── DIFF INDICATOR ── */
+.diff-ok { color:var(--green); font-family:var(--font-mono); font-weight:700; }
+.diff-err { color:var(--red); font-family:var(--font-mono); font-weight:700; }
+
+/* ══ LIGHT MODE ══ */
+[data-theme="light"] {
+  --bg: #f6f8fa; --bg2: #ffffff; --bg3: #f1f3f5; --bg4: #e8eaed;
+  --border: #d0d7de; --border-bright: #adb5bd;
+  --text: #0d1117; --text-soft: #57606a; --text-dim: #8c959f;
+  --shadow-sm: rgba(0,0,0,0.08) 0px 2px 4px; --shadow-xl: rgba(0,0,0,0.12) 0px 8px 32px;
+}
+[data-theme="light"] .sidebar { background:#ffffff; }
+[data-theme="light"] .topbar { background:rgba(255,255,255,0.9); }
+[data-theme="light"] .auth-card { background:#ffffff; }
+[data-theme="light"] nav { background:rgba(246,248,250,0.9); }
+[data-theme="light"] .landing-grid-bg { opacity:0.25; }
+
+/* ══ FULL RESPONSIVE SYSTEM ══ */
+
+/* Sidebar overlay */
+.sidebar-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:49; opacity:0; pointer-events:none; transition:opacity .2s; backdrop-filter:blur(2px); display:none; }
+.sidebar-overlay.open { opacity:1; pointer-events:all; }
+
+/* Hamburger button */
+.hamburger { display:none; align-items:center; justify-content:center; width:36px; height:36px; border:1px solid var(--border); border-radius:var(--radius); background:transparent; cursor:pointer; color:var(--text-soft); flex-direction:column; gap:4px; padding:8px; transition:all .15s; }
+.hamburger:hover { background:rgba(255,255,255,0.05); color:var(--text); }
+.hamburger span { display:block; width:14px; height:1.5px; background:currentColor; border-radius:1px; transition:all .2s; }
+
+/* Theme toggle */
+.theme-toggle { display:flex; align-items:center; justify-content:center; width:32px; height:32px; border:1px solid var(--border); border-radius:var(--radius); background:transparent; cursor:pointer; color:var(--text-soft); font-size:14px; transition:all .15s; }
+.theme-toggle:hover { background:rgba(255,255,255,0.05); color:var(--text); }
+
+/* ── BOTTOM NAV (mobile only) ── */
+.bottom-nav { display:none; position:fixed; bottom:0; left:0; right:0; z-index:40; background:var(--bg2); border-top:1px solid var(--border); padding:8px 4px calc(8px + env(safe-area-inset-bottom)); backdrop-filter:blur(12px); }
+.bottom-nav-inner { display:flex; justify-content:space-around; align-items:center; }
+.bnav-item { display:flex; flex-direction:column; align-items:center; gap:2px; padding:6px 12px; border-radius:var(--radius); cursor:pointer; transition:all .15s; min-width:52px; }
+.bnav-item.active { color:var(--gold); }
+.bnav-item:not(.active) { color:var(--text-dim); }
+.bnav-icon { font-size:18px; line-height:1; }
+.bnav-label { font-size:9px; font-weight:600; letter-spacing:0.3px; font-family:var(--font-mono); text-transform:uppercase; }
+
+/* ══ BREAKPOINTS ══ */
+
+/* ── Tablet / Laptop: hide sidebar, show hamburger ── */
+@media (max-width:1023px) {
+  .sidebar { position:fixed; left:-260px; top:0; bottom:0; z-index:50; width:260px; transition:left .25s cubic-bezier(0.16,1,0.3,1); box-shadow:var(--shadow-xl); height:100vh; }
+  .sidebar.open { left:0; }
+  .sidebar-overlay { display:block; }
+  .hamburger { display:flex; }
+  #app-main { flex-direction:column; }
+  .main-area { flex:1; }
+}
+
+/* ── Mobile: full optimisation ── */
+@media (max-width:767px) {
+  /* Topbar */
+  .topbar { padding:10px 14px; }
+  .topbar-title { font-size:16px; }
+  .topbar-right .btn { display:none; }
+  .topbar-date-text { display:none; }
+
+  /* Page */
+  .page { padding:14px; gap:12px; padding-bottom:80px; }
+
+  /* KPI grid: 2×2 */
+  .kpi-grid { grid-template-columns:1fr 1fr; }
+  .kpi { padding:14px; }
+  .kpi-value { font-size:22px; }
+
+  /* ── TABLES → CARDS ── */
+  .table-wrap { overflow-x:hidden; }
+  .table-wrap table { display:block; }
+  .table-wrap thead { display:none; }
+  .table-wrap tbody { display:flex; flex-direction:column; gap:8px; }
+  .table-wrap tr { display:grid; grid-template-columns:1fr 1fr; gap:0; border:1px solid var(--border); border-radius:var(--radius); background:var(--bg3); padding:12px; overflow:hidden; }
+  .table-wrap td { display:flex; flex-direction:column; gap:2px; padding:4px 6px; border:none; font-size:12px; }
+  .table-wrap td::before { content:attr(data-label); font-size:9px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.5px; font-family:var(--font-mono); font-weight:600; }
+  .table-wrap td[colspan] { grid-column:1/-1; }
+  .table-wrap td[colspan]::before { display:none; }
+
+  /* Match: stack vertically */
+  .match-container { grid-template-columns:1fr; gap:8px; }
+  .match-connector { flex-direction:row; padding:8px 0; justify-content:center; }
+  .match-connector .match-btn { width:44px; height:44px; font-size:18px; }
+
+  /* Balance grid: 1 col */
+  .balance-grid-3 { grid-template-columns:1fr !important; gap:8px !important; }
+
+  /* Dashboard inner grids */
+  .dashboard-2col { grid-template-columns:1fr !important; }
+
+  /* Pending 2col */
+  .pending-2col { grid-template-columns:1fr !important; }
+
+  /* Reports grid: 1 col */
+  .reports-grid { grid-template-columns:1fr !important; }
+
+  /* Touch-friendly buttons */
+  .btn { min-height:40px; }
+  .btn-submit { padding:14px; font-size:15px; }
+
+  /* Forms */
+  .form-input, .form-select { padding:12px 14px; font-size:15px; }
+
+  /* Hero */
+  .hero { padding:40px 16px 32px; gap:18px; }
+  .hero h1 { letter-spacing:-1px; }
+  .hero p { font-size:14px; }
+  .hero-ctas { flex-direction:column; align-items:stretch; }
+  .hero-ctas .btn { justify-content:center; }
+  .hero-stats { gap:24px; padding:16px 20px; }
+  .h-stat-num { font-size:22px; }
+
+  /* Nav */
+  nav { padding:12px 16px; }
+  .nav-logo { font-size:18px; }
+
+  /* Sections */
+  .section { padding:40px 16px; }
+  .section h2 { font-size:24px; margin-bottom:24px; }
+  .how-grid { grid-template-columns:1fr; }
+  .pricing-grid { grid-template-columns:1fr; background:transparent; border:none; gap:12px; }
+  .plan-card { border:1px solid var(--border); border-radius:var(--radius); }
+
+  /* Auth card */
+  .auth-card { margin:16px; padding:24px; border-radius:var(--radius); }
+
+  /* Modal */
+  .modal { border-radius:var(--radius) var(--radius) 0 0; position:fixed; bottom:0; left:0; right:0; max-width:100%; margin:0; padding:24px; max-height:90vh; transform:translateY(100%); }
+  .modal-overlay.open .modal { transform:translateY(0); }
+  .modal-overlay { align-items:flex-end; padding:0; }
+
+  /* Upload zone */
+  .upload-zone { padding:24px; }
+
+  /* Bottom nav: show */
+  .bottom-nav { display:block; }
+
+  /* Footer */
+  footer { flex-direction:column; text-align:center; padding:24px 16px; gap:8px; }
+
+  /* Account cards */
+  #accounts-grid { grid-template-columns:1fr !important; }
+}
+
+/* ── Tablet intermediate ── */
+@media (min-width:768px) and (max-width:1023px) {
+  .kpi-grid { grid-template-columns:repeat(2,1fr); }
+  .page { padding:20px; gap:16px; }
+  .hero { padding:64px 32px 48px; }
+  .section { padding:56px 32px; }
+  nav { padding:14px 28px; }
+  .pricing-grid { grid-template-columns:1fr 1fr; }
+  .balance-grid-3 { grid-template-columns:1fr 1fr !important; }
+  .dashboard-2col { grid-template-columns:1fr !important; }
+}
+
+/* ── Large desktop ── */
+@media (min-width:1280px) {
+  .page { padding:24px 32px; }
+}
+
+/* ── Ultrawide ── */
+@media (min-width:1600px) {
+  .main-area { max-width:1400px; margin:0 auto; width:100%; }
+  #app-main { justify-content:center; }
+  .hero { padding:120px 80px 100px; }
+  .section { padding:96px 80px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ══ LANDING ══ -->
+<div id="landing" class="view active">
+  <div class="landing-grid-bg"></div>
+  <div class="landing-orb orb-1"></div>
+  <div class="landing-orb orb-2"></div>
+
+  <nav>
+    <div class="nav-logo">Concilia<span>çAO</span></div>
+    <div class="nav-links">
+      <button class="btn btn-outline" style="font-size:13px;padding:8px 18px" onclick="showView('login-page')">Entrar</button>
+      <button class="btn btn-gold" style="font-size:13px;padding:8px 18px" onclick="showView('register-page')">Começar grátis</button>
+    </div>
+  </nav>
+
+  <div class="hero">
+    <div class="hero-badge">⚖️ Conciliações Bancárias · Angola</div>
+    <h1>Concilia em <em>minutos</em>,<br>não em horas</h1>
+    <p>Motor de matching automático que reconcilia os teus extractos bancários com os lançamentos do ERP — reduz o tempo de conciliação em até 90%.</p>
+    <div class="hero-ctas">
+      <button class="btn btn-gold" style="padding:14px 32px;font-size:15px" onclick="showView('register-page')">Começar grátis →</button>
+      <button class="btn btn-outline" style="padding:14px 28px;font-size:15px" onclick="demoLogin()">Ver demonstração</button>
+    </div>
+    <div class="hero-stats">
+      <div class="h-stat"><div class="h-stat-num">90%</div><div class="h-stat-label">Menos tempo</div></div>
+      <div class="h-stat"><div class="h-stat-num">99.2%</div><div class="h-stat-label">Precisão matching</div></div>
+      <div class="h-stat"><div class="h-stat-num">AOA</div><div class="h-stat-label">Multi-moeda</div></div>
+      <div class="h-stat"><div class="h-stat-num">24/7</div><div class="h-stat-label">Disponível</div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-chip">Funcionalidades</div>
+    <h2>Tudo o que precisas para conciliar</h2>
+    <div class="features-grid">
+      <div class="feat-card">
+        <div class="feat-icon">🤖</div>
+        <h3>Matching Automático</h3>
+        <p>Motor inteligente que compara extractos bancários com lançamentos do ERP por valor, data e referência. 70-90% das linhas conciliadas automaticamente.</p>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">📂</div>
+        <h3>Importação Universal</h3>
+        <p>Aceita ficheiros OFX, MT940, CSV e PDF dos principais bancos angolanos — BFA, BAI, BIC, Millennium e Caixa Angola.</p>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">📋</div>
+        <h3>Relatório Oficial</h3>
+        <p>Gera o documento formal de conciliação em PDF e Excel, com assinatura do responsável e pronto para auditoria externa.</p>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">⚠️</div>
+        <h3>Detecção de Anomalias</h3>
+        <p>Alerta automático para duplicados, movimentos suspeitos, cheques por descontar e diferenças entre saldos.</p>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">🔁</div>
+        <h3>Regras Personalizadas</h3>
+        <p>Cria regras de associação automática — "quando aparecer INSS no extracto, associa sempre ao fornecedor X".</p>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">📊</div>
+        <h3>Dashboard em Tempo Real</h3>
+        <p>Visão consolidada do estado de todas as contas — conciliadas, pendentes e com diferenças — num único ecrã.</p>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">🏦</div>
+        <h3>Multi-Banco e Multi-Conta</h3>
+        <p>Gere todas as contas bancárias da empresa em paralelo, com suporte a AOA, USD e EUR.</p>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">🔒</div>
+        <h3>Auditoria Completa</h3>
+        <p>Registo de todas as acções — quem conciliou, quando e o quê. Rastreabilidade total para auditorias externas.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section" style="background:var(--bg2);padding:80px 60px">
+    <div class="section-chip">Como funciona</div>
+    <h2>Em 4 passos simples</h2>
+    <div class="how-grid">
+      <div class="how-step"><div class="how-num">01</div><h3>Importa o extracto</h3><p>Faz upload do ficheiro CSV, OFX ou MT940 do teu banco. O sistema lê e estrutura automaticamente.</p></div>
+      <div class="how-step"><div class="how-num">02</div><h3>Importa os lançamentos</h3><p>Carrega os lançamentos do ERP do período — manualmente ou via exportação do PHC CS.</p></div>
+      <div class="how-step"><div class="how-num">03</div><h3>Matching automático</h3><p>O motor compara e associa os movimentos. Revisa as partidas em aberto manualmente se necessário.</p></div>
+      <div class="how-step"><div class="how-num">04</div><h3>Gera o relatório</h3><p>Exporta o documento oficial de conciliação em PDF assinado, pronto para arquivo e auditoria.</p></div>
+    </div>
+  </div>
+
+  <div id="pricing-section" class="section">
+    <div class="section-chip">Preços</div>
+    <h2>Planos para todas as empresas</h2>
+    <div class="pricing-grid">
+      <div class="plan-card">
+        <div class="plan-name">Starter</div>
+        <div class="plan-price">Grátis <span>/mês</span></div>
+        <div class="plan-desc">Para empresas a começar</div>
+        <ul class="plan-features">
+          <li>1 conta bancária</li>
+          <li>50 movimentos/mês</li>
+          <li>Matching automático básico</li>
+          <li>Exportação CSV</li>
+        </ul>
+        <button class="btn btn-outline" style="width:100%;justify-content:center" onclick="showView('register-page')">Começar grátis</button>
+      </div>
+      <div class="plan-card featured">
+        <div class="plan-name">Business</div>
+        <div class="plan-price">15.000 <span>Kz/mês</span></div>
+        <div class="plan-desc">Para PMEs angolanas</div>
+        <ul class="plan-features">
+          <li>5 contas bancárias</li>
+          <li>Movimentos ilimitados</li>
+          <li>Matching IA avançado</li>
+          <li>Relatório PDF oficial</li>
+          <li>Regras personalizadas</li>
+          <li>Multi-moeda (AOA/USD/EUR)</li>
+        </ul>
+        <button class="btn btn-gold" style="width:100%;justify-content:center" onclick="showView('register-page')">Assinar agora</button>
+      </div>
+      <div class="plan-card">
+        <div class="plan-name">Enterprise</div>
+        <div class="plan-price">Sob <span>consulta</span></div>
+        <div class="plan-desc">Para grandes organizações</div>
+        <ul class="plan-features">
+          <li>Contas ilimitadas</li>
+          <li>Integração PHC CS</li>
+          <li>API REST completa</li>
+          <li>Suporte dedicado</li>
+          <li>Instalação on-premise</li>
+        </ul>
+        <button class="btn btn-outline" style="width:100%;justify-content:center" onclick="showToast('📧 Contacta-nos: info@conciliacao.ao')">Falar connosco</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div class="footer-logo">Concilia<span>çAO</span></div>
+    <div class="footer-copy">© <span id="footer-year"></span> ConciliaçAO · Feito em Angola 🇦🇴</div>
+    <div style="display:flex;gap:16px;font-size:12px;color:var(--text-dim)">
+      <span style="cursor:pointer;hover:color:var(--text)">Privacidade</span>
+      <span style="cursor:pointer">Termos</span>
+      <span style="cursor:pointer">Contacto</span>
+    </div>
+  </footer>
+</div>
+
+<!-- ══ LOGIN ══ -->
+<div id="login-page" class="view">
+  <div class="landing-orb orb-1"></div>
+  <div class="landing-orb orb-2"></div>
+  <div class="auth-card">
+    <div class="auth-logo">Concilia<span>çAO</span></div>
+    <div class="auth-subtitle">Entra na tua conta para continuar</div>
+    <div class="error-msg" id="login-error"></div>
+    <div class="form-group">
+      <label class="form-label">Email</label>
+      <input type="email" class="form-input" id="login-email" placeholder="o.teu@email.com">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Password</label>
+      <input type="password" class="form-input" id="login-password" placeholder="••••••••">
+    </div>
+    <button class="btn-submit" id="login-btn" onclick="doLogin()">Entrar →</button>
+    <div style="text-align:center;margin-top:12px">
+      <span style="font-size:13px;color:var(--text-dim);cursor:pointer" onclick="showToast('📧 Recuperação de password em breve!')">Esqueceste a password?</span>
+    </div>
+    <div class="auth-switch">Não tens conta? <span style="color:var(--gold);cursor:pointer;font-weight:600" onclick="showView('register-page')">Regista-te</span> · <span style="color:var(--text-dim);cursor:pointer" onclick="showView('landing')">← Voltar</span></div>
+  </div>
+</div>
+
+<!-- ══ REGISTO ══ -->
+<div id="register-page" class="view">
+  <div class="landing-orb orb-1"></div>
+  <div class="landing-orb orb-2"></div>
+  <div class="auth-card">
+    <div class="auth-logo">Concilia<span>çAO</span></div>
+    <div class="auth-subtitle">Cria a tua conta — grátis para começar</div>
+    <div class="error-msg" id="register-error"></div>
+    <div class="form-group">
+      <label class="form-label">Nome completo</label>
+      <input type="text" class="form-input" id="reg-name" placeholder="Ex: Ana Bento">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Empresa</label>
+      <input type="text" class="form-input" id="reg-company" placeholder="Ex: EPASB-EP">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Email</label>
+      <input type="email" class="form-input" id="reg-email" placeholder="o.teu@email.com">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Password</label>
+      <input type="password" class="form-input" id="reg-password" placeholder="Mínimo 6 caracteres">
+    </div>
+    <button class="btn-submit" id="reg-btn" onclick="doRegister()">Criar conta grátis →</button>
+    <div class="auth-switch">Já tens conta? <span style="color:var(--gold);cursor:pointer;font-weight:600" onclick="showView('login-page')">Entra aqui</span> · <span style="color:var(--text-dim);cursor:pointer" onclick="showView('landing')">← Voltar</span></div>
+  </div>
+</div>
+
+<!-- ══ TRIAL EXPIRADO ══ -->
+<div id="trial-expired-page" class="view" style="background:var(--bg);align-items:center;justify-content:center;position:relative;overflow:hidden">
+  <div class="landing-orb orb-1"></div>
+  <div class="landing-orb orb-2"></div>
+  <div style="position:relative;z-index:2;width:100%;max-width:560px;padding:24px;text-align:center">
+
+    <!-- Ícone -->
+    <div style="width:72px;height:72px;border-radius:16px;background:var(--red-dim);border:1px solid rgba(235,87,87,0.3);display:flex;align-items:center;justify-content:center;font-size:36px;margin:0 auto 24px">⏰</div>
+
+    <div style="font-family:var(--font-mono);font-size:11px;color:var(--red);font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:12px">Trial Expirado</div>
+    <h1 style="font-family:var(--font-display);font-size:clamp(28px,5vw,48px);font-weight:800;letter-spacing:-2px;line-height:1.05;margin-bottom:16px">O teu período gratuito <em style="color:var(--gold);font-style:normal">terminou</em></h1>
+    <p style="font-size:14px;color:var(--text-soft);line-height:1.7;max-width:420px;margin:0 auto 32px">Os teus dados estão guardados e seguros. Subscreve um plano para continuar a usar o ConciliaçAO.</p>
+
+    <!-- Planos -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:24px;text-align:left">
+      <div style="background:var(--bg2);padding:24px">
+        <div style="font-family:var(--font-display);font-size:15px;font-weight:700;margin-bottom:6px">Business</div>
+        <div style="font-family:var(--font-display);font-size:32px;font-weight:800;color:var(--gold);letter-spacing:-1px;margin-bottom:4px">15.000 <span style="font-size:12px;font-family:var(--font-body);opacity:.5;font-weight:400">Kz/mês</span></div>
+        <div style="font-size:11px;color:var(--text-soft);margin-bottom:16px">Para PMEs angolanas</div>
+        <ul style="list-style:none;display:flex;flex-direction:column;gap:6px;margin-bottom:18px">
+          <li style="font-size:11px;color:var(--text-soft);display:flex;gap:6px"><span style="color:var(--gold)">✓</span> 5 contas bancárias</li>
+          <li style="font-size:11px;color:var(--text-soft);display:flex;gap:6px"><span style="color:var(--gold)">✓</span> Movimentos ilimitados</li>
+          <li style="font-size:11px;color:var(--text-soft);display:flex;gap:6px"><span style="color:var(--gold)">✓</span> Relatório PDF oficial</li>
+          <li style="font-size:11px;color:var(--text-soft);display:flex;gap:6px"><span style="color:var(--gold)">✓</span> Matching IA avançado</li>
+        </ul>
+        <button onclick="requestPlan('business')" class="btn btn-gold" style="width:100%;justify-content:center">Subscrever →</button>
+      </div>
+      <div style="background:var(--bg3);padding:24px;position:relative">
+        <div style="position:absolute;top:12px;right:12px;background:var(--gold);color:#000;font-size:9px;font-weight:800;padding:2px 8px;border-radius:4px;font-family:var(--font-mono);letter-spacing:1px">POPULAR</div>
+        <div style="font-family:var(--font-display);font-size:15px;font-weight:700;margin-bottom:6px">Enterprise</div>
+        <div style="font-family:var(--font-display);font-size:32px;font-weight:800;color:var(--gold);letter-spacing:-1px;margin-bottom:4px">Sob <span style="font-size:12px;font-family:var(--font-body);opacity:.5;font-weight:400">consulta</span></div>
+        <div style="font-size:11px;color:var(--text-soft);margin-bottom:16px">Para grandes organizações</div>
+        <ul style="list-style:none;display:flex;flex-direction:column;gap:6px;margin-bottom:18px">
+          <li style="font-size:11px;color:var(--text-soft);display:flex;gap:6px"><span style="color:var(--gold)">✓</span> Contas ilimitadas</li>
+          <li style="font-size:11px;color:var(--text-soft);display:flex;gap:6px"><span style="color:var(--gold)">✓</span> Integração PHC CS</li>
+          <li style="font-size:11px;color:var(--text-soft);display:flex;gap:6px"><span style="color:var(--gold)">✓</span> API REST completa</li>
+          <li style="font-size:11px;color:var(--text-soft);display:flex;gap:6px"><span style="color:var(--gold)">✓</span> Suporte dedicado</li>
+        </ul>
+        <button onclick="requestPlan('enterprise')" class="btn btn-outline" style="width:100%;justify-content:center">Falar connosco →</button>
+      </div>
+    </div>
+
+    <!-- Contacto e acesso temporário -->
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+      <button onclick="doLogout()" class="btn btn-ghost" style="font-size:12px">← Sair da conta</button>
+      <button onclick="contactSupport()" class="btn btn-ghost" style="font-size:12px">📧 Contactar suporte</button>
+    </div>
+
+    <div style="margin-top:20px;font-size:11px;color:var(--text-dim)">
+      Os teus dados estão guardados por 90 dias após o fim do trial.
+    </div>
+  </div>
+</div>
+
+<!-- ══ APP PRINCIPAL ══ -->
+<div id="app-main" class="view">
+  <div class="sidebar">
+    <button onclick="showView('landing')" style="background:none;border:none;cursor:pointer;text-align:left;padding:0 20px">
+      <div class="sb-logo">Concilia<span>çAO</span></div>
+    </button>
+    <div class="sb-version">v1.0 · Angola</div>
+
+    <div class="sb-section">Principal</div>
+    <div class="sb-item active" onclick="switchPage(this,'page-dashboard')"><span class="sb-icon">📊</span> Dashboard</div>
+    <div class="sb-item" onclick="switchPage(this,'page-reconcile')"><span class="sb-icon">⚖️</span> Conciliar</div>
+    <div class="sb-item" onclick="switchPage(this,'page-movements')"><span class="sb-icon">↕️</span> Movimentos</div>
+    <div class="sb-item" onclick="switchPage(this,'page-pending')"><span class="sb-icon">⏳</span> Pendentes <span class="sb-badge" id="pending-count">0</span></div>
+
+    <div class="sb-section">Gestão</div>
+    <div class="sb-item" onclick="switchPage(this,'page-accounts')"><span class="sb-icon">🏦</span> Contas Bancárias</div>
+    <div class="sb-item" onclick="switchPage(this,'page-rules')"><span class="sb-icon">🔁</span> Regras Auto</div>
+    <div class="sb-item" onclick="switchPage(this,'page-reports')"><span class="sb-icon">📋</span> Relatórios</div>
+    <div class="sb-item" onclick="switchPage(this,'page-audit')"><span class="sb-icon">🔍</span> Auditoria</div>
+
+    <div class="sb-section admin-only" id="sb-section-admin" style="display:none">Admin</div>
+    <div class="sb-item admin-only" id="sb-item-admin" style="display:none" onclick="switchPage(this,'page-admin')"><span class="sb-icon">🛡️</span> Painel Admin</div>
+
+    <div class="sb-footer">
+      <div class="sb-user">
+        <div class="sb-avatar" id="app-avatar">U</div>
+        <div>
+          <div class="sb-uname" id="app-username">Utilizador</div>
+          <div class="sb-urole" id="app-company">Empresa</div>
+        </div>
+      </div>
+      <div class="sb-item" style="margin-top:6px;color:var(--text-dim)" onclick="doLogout()"><span class="sb-icon">🚪</span> Sair</div>
+    </div>
+  </div>
+
+  <!-- SIDEBAR OVERLAY (mobile) -->
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+  <!-- BOTTOM NAV (mobile) -->
+  <div class="bottom-nav">
+    <div class="bottom-nav-inner">
+      <div class="bnav-item active" id="bnav-dashboard" onclick="switchPage(null,'page-dashboard');setActiveBottomNav('bnav-dashboard')">
+        <div class="bnav-icon">📊</div><div class="bnav-label">Dashboard</div>
+      </div>
+      <div class="bnav-item" id="bnav-reconcile" onclick="switchPage(null,'page-reconcile');setActiveBottomNav('bnav-reconcile')">
+        <div class="bnav-icon">⚖️</div><div class="bnav-label">Conciliar</div>
+      </div>
+      <div class="bnav-item" id="bnav-movements" onclick="switchPage(null,'page-movements');setActiveBottomNav('bnav-movements')">
+        <div class="bnav-icon">📋</div><div class="bnav-label">Movimentos</div>
+      </div>
+      <div class="bnav-item" id="bnav-reports" onclick="switchPage(null,'page-reports');setActiveBottomNav('bnav-reports')">
+        <div class="bnav-icon">📄</div><div class="bnav-label">Relatórios</div>
+      </div>
+      <div class="bnav-item" id="bnav-more" onclick="toggleSidebar()">
+        <div class="bnav-icon">☰</div><div class="bnav-label">Menu</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="main-area">
+    <div class="topbar">
+      <div style="display:flex;align-items:center;gap:10px">
+        <button class="hamburger" onclick="toggleSidebar()" aria-label="Menu">
+          <span></span><span></span><span></span>
+        </button>
+        <div class="topbar-title" id="page-title">Dashboard</div>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-date-text" style="font-size:12px;color:var(--text-dim);font-family:var(--font-mono)" id="topbar-date"></div>
+        <button class="theme-toggle" onclick="toggleTheme()" title="Alternar tema" id="theme-btn">🌙</button>
+        <button class="btn btn-gold" style="padding:8px 18px;font-size:13px" onclick="openImportModal()">⬆ Importar Extracto</button>
+        <button class="btn btn-outline" style="padding:8px 18px;font-size:13px" onclick="openImportERPModal()">⬆ Importar ERP</button>
+      </div>
+    </div>
+
+    <!-- ── DASHBOARD ── -->
+    <div class="page active" id="page-dashboard">
+      <div class="kpi-grid">
+        <div class="kpi">
+          <div class="kpi-icon" style="background:var(--gold-dim)">⚖️</div>
+          <div class="kpi-label">Conciliadas hoje</div>
+          <div class="kpi-value" id="kpi-today">0</div>
+          <div class="kpi-sub">linhas reconciliadas</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-icon" style="background:var(--red-dim)">⏳</div>
+          <div class="kpi-label">Pendentes</div>
+          <div class="kpi-value" id="kpi-pending">0</div>
+          <div class="kpi-sub warn">a rever</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-icon" style="background:var(--green-dim)">✅</div>
+          <div class="kpi-label">Taxa de matching</div>
+          <div class="kpi-value" id="kpi-rate">—</div>
+          <div class="kpi-sub">automático</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-icon" style="background:var(--blue-dim)">🏦</div>
+          <div class="kpi-label">Contas activas</div>
+          <div class="kpi-value" id="kpi-accounts">0</div>
+          <div class="kpi-sub">bancárias</div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px" class="dashboard-2col">
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title">Estado das Contas</div>
+            <button class="btn btn-ghost" style="padding:6px 14px;font-size:12px" onclick="switchPage(document.querySelector('.sb-item:nth-child(7)'),'page-accounts')">Ver todas</button>
+          </div>
+          <div id="accounts-status-list">
+            <div style="text-align:center;padding:30px;color:var(--text-dim);font-size:13px">Ainda não tens contas. <span style="color:var(--gold);cursor:pointer" onclick="openAddAccountModal()">Adiciona uma →</span></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title">Últimas Conciliações</div>
+          </div>
+          <div id="recent-matches-list">
+            <div style="text-align:center;padding:30px;color:var(--text-dim);font-size:13px">Sem conciliações recentes.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">Actividade Recente</div>
+        </div>
+        <div id="activity-list">
+          <div style="text-align:center;padding:24px;color:var(--text-dim);font-size:13px">Sem actividade registada ainda.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── CONCILIAR ── -->
+    <div class="page" id="page-reconcile">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+        <div>
+          <div style="font-family:var(--font-display);font-size:24px;font-weight:800">Motor de Conciliação</div>
+          <div style="font-size:13px;color:var(--text-soft);margin-top:4px">Associa movimentos bancários aos lançamentos do ERP</div>
+        </div>
+        <div style="display:flex;gap:10px">
+          <select class="form-select" id="reconcile-account" style="width:200px" onchange="loadReconcileData()">
+            <option value="">Selecciona conta</option>
+          </select>
+          <button class="btn btn-gold" onclick="autoMatch()">⚡ Auto-match</button>
+        </div>
+      </div>
+
+      <!-- SALDOS -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px" class="balance-grid-3" id="saldos-grid">
+        <div class="card" style="text-align:center">
+          <div style="font-size:11px;color:var(--text-dim);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Saldo Bancário</div>
+          <div style="font-family:var(--font-display);font-size:28px;font-weight:800;color:var(--gold)" id="saldo-banco">0,00 Kz</div>
+        </div>
+        <div class="card" style="text-align:center">
+          <div style="font-size:11px;color:var(--text-dim);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Saldo Contabilístico</div>
+          <div style="font-family:var(--font-display);font-size:28px;font-weight:800;color:var(--blue)" id="saldo-contab">0,00 Kz</div>
+        </div>
+        <div class="card" style="text-align:center">
+          <div style="font-size:11px;color:var(--text-dim);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Diferença</div>
+          <div style="font-family:var(--font-display);font-size:28px;font-weight:800" id="saldo-diff" class="diff-ok">0,00 Kz</div>
+        </div>
+      </div>
+
+      <!-- MATCHING UI -->
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">Matching Manual</div>
+          <div style="display:flex;gap:8px">
+            <span class="badge badge-green" id="matched-count">0 conciliados</span>
+            <span class="badge badge-amber" id="unmatched-count">0 pendentes</span>
+          </div>
+        </div>
+        <div class="match-container">
+          <div>
+            <div class="match-col-title">📥 Extracto Bancário</div>
+            <div id="bank-items">
+              <div style="text-align:center;padding:30px;color:var(--text-dim);font-size:13px">Importa um extracto para começar</div>
+            </div>
+          </div>
+          <div class="match-connector">
+            <button class="match-btn" id="btn-match" onclick="openMatchModal()" disabled title="Selecciona um item de cada lado">⇌</button>
+            <button class="match-btn" style="background:var(--red-dim);color:var(--red);font-size:14px" onclick="unmatchSelected()" title="Desfazer associação">✕</button>
+          </div>
+          <div>
+            <div class="match-col-title">📒 Lançamentos ERP</div>
+            <div id="accounting-items">
+              <div style="text-align:center;padding:30px;color:var(--text-dim);font-size:13px">Importa os lançamentos para começar</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── MOVIMENTOS ── -->
+    <div class="page" id="page-movements">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+        <div style="font-family:var(--font-display);font-size:24px;font-weight:800">Movimentos Bancários</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <input class="form-input" placeholder="🔍 Pesquisar..." style="width:200px" oninput="filterMovements(this.value)">
+          <select class="form-select" style="width:160px" onchange="filterMovementsByType(this.value)">
+            <option value="">Todos os tipos</option>
+            <option value="credit">Créditos</option>
+            <option value="debit">Débitos</option>
+          </select>
+          <button class="btn btn-gold" onclick="openImportModal()">⬆ Importar</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Descrição</th>
+                <th>Referência</th>
+                <th>Tipo</th>
+                <th>Valor</th>
+                <th>Estado</th>
+                <th>Conta</th>
+              </tr>
+            </thead>
+            <tbody id="movements-table">
+              <tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-dim)">Ainda não tens movimentos importados. <span style="color:var(--gold);cursor:pointer" onclick="openImportModal()">Importar extracto →</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── PENDENTES ── -->
+    <div class="page" id="page-pending">
+      <div style="font-family:var(--font-display);font-size:24px;font-weight:800;margin-bottom:4px">Partidas em Aberto</div>
+      <div style="font-size:13px;color:var(--text-soft);margin-bottom:20px">Movimentos que ainda não foram conciliados e precisam de revisão manual</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px" class="pending-2col">
+        <div class="card">
+          <div class="card-head"><div class="card-title">🏦 Não conciliados no banco</div></div>
+          <div id="pending-bank-list">
+            <div style="text-align:center;padding:24px;color:var(--text-dim);font-size:13px">Sem partidas em aberto. ✅</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="card-title">📒 Não conciliados na contabilidade</div></div>
+          <div id="pending-accounting-list">
+            <div style="text-align:center;padding:24px;color:var(--text-dim);font-size:13px">Sem partidas em aberto. ✅</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── CONTAS BANCÁRIAS ── -->
+    <div class="page" id="page-accounts">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-family:var(--font-display);font-size:24px;font-weight:800">Contas Bancárias</div>
+        <button class="btn btn-gold" onclick="openAddAccountModal()">+ Adicionar conta</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px" id="accounts-grid">
+        <div style="border:2px dashed var(--border);border-radius:var(--radius);padding:32px;text-align:center;cursor:pointer;color:var(--text-dim)" onclick="openAddAccountModal()">
+          <div style="font-size:32px;margin-bottom:8px">+</div>
+          <div style="font-size:14px">Adicionar conta bancária</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── REGRAS AUTO ── -->
+    <div class="page" id="page-rules">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-family:var(--font-display);font-size:24px;font-weight:800">Regras Automáticas</div>
+          <div style="font-size:13px;color:var(--text-soft);margin-top:4px">Define padrões para matching automático recorrente</div>
+        </div>
+        <button class="btn btn-gold" onclick="openAddRuleModal()">+ Nova regra</button>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Nome</th><th>Condição</th><th>Acção</th><th>Aplicações</th><th>Estado</th><th></th></tr></thead>
+            <tbody id="rules-table">
+              <tr>
+                <td><strong>INSS / Segurança Social</strong></td>
+                <td class="mono">descrição contém "INSS"</td>
+                <td>Associar → Fornecedor INSS</td>
+                <td class="mono">24x</td>
+                <td><span class="badge badge-green">Activa</span></td>
+                <td><button class="btn btn-ghost" style="padding:5px 10px;font-size:11px" onclick="showToast('⚙️ Regra editada!')">Editar</button></td>
+              </tr>
+              <tr>
+                <td><strong>Transferência Interna</strong></td>
+                <td class="mono">descrição contém "TRANSF INT"</td>
+                <td>Ignorar / Não conciliar</td>
+                <td class="mono">8x</td>
+                <td><span class="badge badge-green">Activa</span></td>
+                <td><button class="btn btn-ghost" style="padding:5px 10px;font-size:11px" onclick="showToast('⚙️ Regra editada!')">Editar</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── RELATÓRIOS ── -->
+    <div class="page" id="page-reports">
+      <div style="font-family:var(--font-display);font-size:24px;font-weight:800;margin-bottom:20px">Relatórios de Conciliação</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px">
+        <div class="card" style="cursor:pointer" onclick="generateReport('mensal')">
+          <div style="font-size:32px;margin-bottom:12px">📄</div>
+          <div style="font-family:var(--font-display);font-size:16px;font-weight:700;margin-bottom:6px">Relatório Mensal</div>
+          <div style="font-size:13px;color:var(--text-soft)">Conciliação completa do mês com saldos iniciais, movimentos e saldo final.</div>
+          <div style="margin-top:16px;display:flex;gap:8px">
+            <span class="badge badge-gold">PDF</span>
+            <span class="badge badge-blue">Excel</span>
+          </div>
+        </div>
+        <div class="card" style="cursor:pointer" onclick="generateReport('partidas')">
+          <div style="font-size:32px;margin-bottom:12px">⏳</div>
+          <div style="font-family:var(--font-display);font-size:16px;font-weight:700;margin-bottom:6px">Partidas em Aberto</div>
+          <div style="font-size:13px;color:var(--text-soft)">Lista de movimentos não conciliados com data, valor e motivo de pendência.</div>
+          <div style="margin-top:16px;display:flex;gap:8px">
+            <span class="badge badge-gold">PDF</span>
+            <span class="badge badge-blue">Excel</span>
+          </div>
+        </div>
+        <div class="card" style="cursor:pointer" onclick="generateReport('auditoria')">
+          <div style="font-size:32px;margin-bottom:12px">🔍</div>
+          <div style="font-family:var(--font-display);font-size:16px;font-weight:700;margin-bottom:6px">Relatório de Auditoria</div>
+          <div style="font-size:13px;color:var(--text-soft)">Log completo de todas as acções — quem conciliou, quando e o quê.</div>
+          <div style="margin-top:16px;display:flex;gap:8px">
+            <span class="badge badge-gold">PDF</span>
+          </div>
+        </div>
+        <div class="card" style="cursor:pointer" onclick="generateReport('anomalias')">
+          <div style="font-size:32px;margin-bottom:12px">⚠️</div>
+          <div style="font-family:var(--font-display);font-size:16px;font-weight:700;margin-bottom:6px">Anomalias Detectadas</div>
+          <div style="font-size:13px;color:var(--text-soft)">Duplicados, movimentos suspeitos e diferenças entre saldos.</div>
+          <div style="margin-top:16px;display:flex;gap:8px">
+            <span class="badge badge-red">Alertas</span>
+            <span class="badge badge-gold">PDF</span>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">Histórico de Relatórios</div></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Data</th><th>Tipo</th><th>Conta</th><th>Período</th><th>Gerado por</th><th>Acção</th></tr></thead>
+            <tbody id="reports-history">
+              <tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-dim)">Ainda não geraste relatórios.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── AUDITORIA ── -->
+    <div class="page" id="page-audit">
+      <div style="font-family:var(--font-display);font-size:24px;font-weight:800;margin-bottom:20px">Log de Auditoria</div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Data/Hora</th><th>Utilizador</th><th>Acção</th><th>Detalhe</th><th>IP</th></tr></thead>
+            <tbody id="audit-log">
+              <tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-dim)">Sem registos de auditoria ainda.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── PAINEL ADMIN ── -->
+    <div class="page" id="page-admin">
+      <!-- Header -->
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+        <div>
+          <div style="font-family:var(--font-display);font-size:24px;font-weight:800">Painel de Administração</div>
+          <div style="font-size:13px;color:var(--text-soft);margin-top:4px">Gestão de clientes, planos e acessos — só visible para admins</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <input class="form-input" placeholder="🔍 Pesquisar cliente..." id="admin-search" style="width:220px" oninput="filterAdminClients(this.value)">
+          <select class="form-select" id="admin-filter-plan" style="width:160px" onchange="filterAdminClients(document.getElementById('admin-search').value)">
+            <option value="">Todos os planos</option>
+            <option value="trial">Trial</option>
+            <option value="business">Business</option>
+            <option value="enterprise">Enterprise</option>
+            <option value="suspended">Suspenso</option>
+          </select>
+          <button class="btn btn-gold" onclick="loadAdminData()">🔄 Actualizar</button>
+        </div>
+      </div>
+
+      <!-- KPIs Admin -->
+      <div class="kpi-grid" id="admin-kpis">
+        <div class="kpi">
+          <div class="kpi-icon" style="background:var(--blue-dim)">👥</div>
+          <div class="kpi-label">Total clientes</div>
+          <div class="kpi-value" id="adm-kpi-total">—</div>
+          <div class="kpi-sub">registados</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-icon" style="background:var(--gold-dim)">⏳</div>
+          <div class="kpi-label">Em trial</div>
+          <div class="kpi-value" id="adm-kpi-trial">—</div>
+          <div class="kpi-sub warn">a expirar em breve</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-icon" style="background:var(--green-dim)">✅</div>
+          <div class="kpi-label">Planos pagos</div>
+          <div class="kpi-value" id="adm-kpi-paid">—</div>
+          <div class="kpi-sub">business + enterprise</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-icon" style="background:var(--red-dim)">⛔</div>
+          <div class="kpi-label">Trials expirados</div>
+          <div class="kpi-value" id="adm-kpi-expired">—</div>
+          <div class="kpi-sub danger">sem acesso</div>
+        </div>
+      </div>
+
+      <!-- Aviso SQL necessário -->
+      <div style="background:rgba(94,106,210,0.08);border:1px solid rgba(94,106,210,0.25);border-radius:var(--radius);padding:14px 16px;font-size:12px;color:#a5b4fc;display:flex;gap:10px;align-items:flex-start">
+        <span style="font-size:16px;flex-shrink:0">ℹ️</span>
+        <div>
+          <strong>SQL necessário no Supabase:</strong> Para o admin ver dados de todos os clientes, adiciona esta policy no Supabase SQL Editor:<br>
+          <code style="font-family:var(--font-mono);font-size:11px;background:rgba(0,0,0,0.3);padding:2px 6px;border-radius:4px;margin-top:4px;display:inline-block">CREATE POLICY "Admin full access" ON cao_users FOR ALL USING (EXISTS (SELECT 1 FROM cao_users WHERE id = auth.uid() AND role = 'admin'));</code>
+          <br><span style="color:var(--text-dim);margin-top:4px;display:block">Sem esta policy, a RLS bloqueia o acesso aos dados de outros utilizadores.</span>
+        </div>
+      </div>
+
+      <!-- Tabela de Clientes -->
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">Lista de Clientes</div>
+          <div style="font-size:12px;color:var(--text-dim)" id="admin-client-count">— clientes</div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Cliente</th>
+                <th>Email</th>
+                <th>Empresa</th>
+                <th>Plano</th>
+                <th>Trial expira</th>
+                <th>Estado</th>
+                <th>Acções</th>
+              </tr>
+            </thead>
+            <tbody id="admin-clients-table">
+              <tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-dim)">A carregar clientes... Clica em "Actualizar".</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SQL Cheat Sheet -->
+      <div class="card" style="border-color:var(--border-bright)">
+        <div class="card-head">
+          <div class="card-title">🗄️ Referência SQL Rápida</div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px">
+          <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:14px">
+            <div style="font-size:11px;color:var(--gold);font-weight:700;margin-bottom:6px;font-family:var(--font-mono)">ACTIVAR PLANO BUSINESS</div>
+            <pre style="font-family:var(--font-mono);font-size:10px;color:var(--text-soft);white-space:pre-wrap;line-height:1.5">UPDATE cao_users
+SET plan = 'business',
+    trial_ends_at = NULL
+WHERE email = 'cliente@email.com';</pre>
+          </div>
+          <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:14px">
+            <div style="font-size:11px;color:var(--gold);font-weight:700;margin-bottom:6px;font-family:var(--font-mono)">EXTENDER TRIAL (+30 DIAS)</div>
+            <pre style="font-family:var(--font-mono);font-size:10px;color:var(--text-soft);white-space:pre-wrap;line-height:1.5">UPDATE cao_users
+SET trial_ends_at = NOW()
+    + INTERVAL '30 days'
+WHERE email = 'cliente@email.com';</pre>
+          </div>
+          <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:14px">
+            <div style="font-size:11px;color:var(--red);font-weight:700;margin-bottom:6px;font-family:var(--font-mono)">SUSPENDER ACESSO</div>
+            <pre style="font-family:var(--font-mono);font-size:10px;color:var(--text-soft);white-space:pre-wrap;line-height:1.5">UPDATE cao_users
+SET plan = 'suspended',
+    trial_ends_at = NOW()
+WHERE email = 'cliente@email.com';</pre>
+          </div>
+          <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:14px">
+            <div style="font-size:11px;color:var(--blue);font-weight:700;margin-bottom:6px;font-family:var(--font-mono)">PROMOVER A ADMIN</div>
+            <pre style="font-family:var(--font-mono);font-size:10px;color:var(--text-soft);white-space:pre-wrap;line-height:1.5">UPDATE cao_users
+SET role = 'admin',
+    plan = 'enterprise'
+WHERE email = 'tucho@exemplo.com';</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: EDITAR CLIENTE (ADMIN) ══ -->
+<div class="modal-overlay" id="admin-edit-modal">
+  <div class="modal" style="max-width:480px">
+    <button class="modal-close" onclick="closeModal('admin-edit-modal')">✕</button>
+    <h2>Editar Cliente</h2>
+    <p id="admin-edit-subtitle" style="color:var(--text-soft);font-size:13px;margin-bottom:16px">—</p>
+    <input type="hidden" id="admin-edit-uid">
+    <div class="form-group">
+      <label class="form-label">Plano</label>
+      <select class="form-select" id="admin-edit-plan">
+        <option value="trial">Trial (30 dias)</option>
+        <option value="business">Business (15.000 Kz/mês)</option>
+        <option value="enterprise">Enterprise</option>
+        <option value="suspended">Suspenso</option>
+      </select>
+    </div>
+    <div class="form-group" id="admin-edit-trial-group">
+      <label class="form-label">Data de expiração do trial</label>
+      <input type="datetime-local" class="form-input" id="admin-edit-trial-date">
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px" onclick="extendTrial(7)">+7 dias</button>
+        <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px" onclick="extendTrial(14)">+14 dias</button>
+        <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px" onclick="extendTrial(30)">+30 dias</button>
+        <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px" onclick="extendTrial(60)">+60 dias</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Role</label>
+      <select class="form-select" id="admin-edit-role">
+        <option value="user">user</option>
+        <option value="admin">admin</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn btn-success" style="flex:1;justify-content:center" onclick="saveAdminEdit()">💾 Guardar alterações</button>
+      <button class="btn btn-danger" style="flex:1;justify-content:center" onclick="suspendClient()">⛔ Suspender</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: IMPORTAR EXTRACTO ══ -->
+<div class="modal-overlay" id="import-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('import-modal')">✕</button>
+    <h2>Importar Extracto Bancário</h2>
+    <p>Faz upload do ficheiro do teu banco para iniciar a conciliação</p>
+    <div class="form-group">
+      <label class="form-label">Conta Bancária</label>
+      <select class="form-select" id="import-account">
+        <option value="">Selecciona uma conta</option>
+      </select>
+    </div>
+    <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()" ondragover="handleDragOver(event)" ondrop="handleDrop(event)">
+      <div class="upload-icon">📂</div>
+      <div class="upload-title">Arrasta o ficheiro aqui</div>
+      <div class="upload-sub">ou clica para seleccionar</div>
+      <div class="upload-formats">
+        <span class="format-chip">CSV</span>
+        <span class="format-chip">OFX</span>
+        <span class="format-chip">MT940</span>
+        <span class="format-chip">TXT</span>
+      </div>
+    </div>
+    <input type="file" id="file-input" accept=".csv,.ofx,.txt,.mt940" style="display:none" onchange="handleFileSelect(event)">
+    <div id="file-preview" style="display:none;margin-top:16px">
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px">
+        <div style="font-size:13px;font-weight:600" id="file-name">ficheiro.csv</div>
+        <div style="font-size:12px;color:var(--text-soft);margin-top:4px" id="file-info">0 linhas detectadas</div>
+        <div class="progress-bar" style="margin-top:12px"><div class="progress-fill" id="file-progress" style="width:0%"></div></div>
+      </div>
+    </div>
+    <div style="display:none;margin-top:16px" id="import-preview-table"></div>
+    <button class="btn-submit" style="margin-top:16px" id="import-btn" onclick="processImport()" disabled>⬆ Processar Extracto</button>
+  </div>
+</div>
+
+<!-- ══ MODAL: IMPORTAR ERP ══ -->
+<div class="modal-overlay" id="import-erp-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('import-erp-modal')">✕</button>
+    <h2>Importar Lançamentos ERP</h2>
+    <p>Faz upload do ficheiro exportado do teu ERP (PHC, Sage, SAP, Primavera, etc.)</p>
+    <div class="upload-zone" id="erp-upload-zone" onclick="document.getElementById('erp-file-input').click()" ondragover="handleDragOver(event)" ondrop="handleERPDrop(event)">
+      <div class="upload-icon">📊</div>
+      <div class="upload-title">Arrasta o ficheiro aqui</div>
+      <div class="upload-sub">ou clica para seleccionar</div>
+      <div class="upload-formats">
+        <span class="format-chip">CSV</span>
+        <span class="format-chip">TXT</span>
+      </div>
+    </div>
+    <input type="file" id="erp-file-input" accept=".csv,.txt" style="display:none" onchange="handleERPFileSelect(event)">
+    <div id="erp-file-preview" style="display:none;margin-top:16px">
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px">
+        <div style="font-size:13px;font-weight:600" id="erp-file-name">ficheiro.csv</div>
+        <div style="font-size:12px;color:var(--text-soft);margin-top:4px" id="erp-file-info">0 linhas detectadas</div>
+        <div class="progress-bar" style="margin-top:12px"><div class="progress-fill" id="erp-file-progress" style="width:0%"></div></div>
+      </div>
+    </div>
+    <div style="margin-top:14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px;font-size:12px;color:var(--text-soft)">
+      <div style="font-weight:600;color:var(--text);margin-bottom:6px">Formato esperado do CSV:</div>
+      <code style="font-family:var(--font-mono);font-size:11px">data,descricao,referencia,valor<br>2026-01-15,Pagamento fornecedor,FAT-001,150000.00<br>2026-01-20,Recebimento cliente,REC-002,-75000.00</code>
+    </div>
+    <button class="btn-submit" style="margin-top:16px" id="erp-import-btn" onclick="processERPImport()" disabled>⬆ Processar Lançamentos</button>
+  </div>
+</div>
+
+<!-- ══ MODAL: ADICIONAR CONTA ══ --><div class="modal-overlay" id="add-account-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('add-account-modal')">✕</button>
+    <h2>Adicionar Conta Bancária</h2>
+    <p>Regista uma nova conta para conciliação</p>
+    <div class="form-group">
+      <label class="form-label">Banco</label>
+      <select class="form-select" id="acc-bank">
+        <option>BFA — Banco de Fomento Angola</option>
+        <option>BAI — Banco Angolano de Investimentos</option>
+        <option>BIC — Banco BIC</option>
+        <option>Millennium Atlântico</option>
+        <option>Caixa Angola</option>
+        <option>BPA — Banco de Poupança e Crédito</option>
+        <option>BCGTA</option>
+        <option>Outro</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Nome / Descrição</label>
+      <input type="text" class="form-input" id="acc-name" placeholder="Ex: Conta Corrente Principal">
+    </div>
+    <div class="form-group">
+      <label class="form-label">IBAN / Número de Conta</label>
+      <input type="text" class="form-input" id="acc-iban" placeholder="Ex: AO06 0040 0000 0000 0000 1012 1">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Moeda</label>
+      <select class="form-select" id="acc-currency">
+        <option value="AOA">AOA — Kwanza Angolano</option>
+        <option value="USD">USD — Dólar Americano</option>
+        <option value="EUR">EUR — Euro</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Saldo inicial (na data de início)</label>
+      <input type="number" class="form-input" id="acc-balance" placeholder="0.00" step="0.01">
+    </div>
+    <button class="btn-submit" onclick="addAccount()">💾 Guardar conta</button>
+  </div>
+</div>
+
+<!-- ══ MODAL: NOVA REGRA ══ -->
+<div class="modal-overlay" id="add-rule-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('add-rule-modal')">✕</button>
+    <h2>Nova Regra Automática</h2>
+    <p>Define um padrão para matching automático</p>
+    <div class="form-group">
+      <label class="form-label">Nome da regra</label>
+      <input type="text" class="form-input" id="rule-name" placeholder="Ex: Pagamento INSS">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Campo a verificar</label>
+      <select class="form-select" id="rule-field">
+        <option value="description">Descrição</option>
+        <option value="reference">Referência</option>
+        <option value="amount">Valor</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Condição</label>
+      <select class="form-select" id="rule-condition">
+        <option value="contains">Contém</option>
+        <option value="equals">É igual a</option>
+        <option value="starts">Começa com</option>
+        <option value="ends">Termina com</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Valor</label>
+      <input type="text" class="form-input" id="rule-value" placeholder="Ex: INSS, SEGURANÇA SOCIAL">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Acção</label>
+      <select class="form-select" id="rule-action">
+        <option value="tag">Marcar com tag</option>
+        <option value="ignore">Ignorar movimento</option>
+        <option value="assign">Atribuir a fornecedor/conta</option>
+      </select>
+    </div>
+    <button class="btn-submit" onclick="addRule()">💾 Guardar regra</button>
+  </div>
+</div>
+
+<!-- MODAL JUSTIFICAÇÃO DE MATCHING -->
+<div class="modal-overlay" id="match-justify-modal">
+  <div class="modal" style="max-width:440px">
+    <button class="modal-close" onclick="closeModal('match-justify-modal')">✕</button>
+    <h2>Confirmar Conciliação</h2>
+    <p>Resumo dos itens seleccionados para associar.</p>
+
+    <!-- Preview dos dois itens -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:12px">
+        <div style="font-size:9px;color:var(--gold);font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">📥 Extracto Banco</div>
+        <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:3px" id="jm-bank-desc">—</div>
+        <div style="font-size:11px;color:var(--text-dim);font-family:var(--font-mono)" id="jm-bank-date">—</div>
+        <div style="font-size:14px;font-weight:800;font-family:var(--font-display);margin-top:6px" id="jm-bank-amount">—</div>
+      </div>
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:12px">
+        <div style="font-size:9px;color:var(--gold);font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">📒 Contabilidade</div>
+        <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:3px" id="jm-acc-desc">—</div>
+        <div style="font-size:11px;color:var(--text-dim);font-family:var(--font-mono)" id="jm-acc-date">—</div>
+        <div style="font-size:14px;font-weight:800;font-family:var(--font-display);margin-top:6px" id="jm-acc-amount">—</div>
+      </div>
+    </div>
+
+    <!-- Alerta de diferença -->
+    <div id="jm-diff-alert" style="display:none;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:var(--radius);padding:10px 12px;margin-bottom:14px;font-size:12px;color:var(--amber)">
+      ⚠️ <strong>Diferença de valores:</strong> <span id="jm-diff-value"></span> Kz
+    </div>
+
+    <!-- Tipo de justificação -->
+    <div class="form-group">
+      <label class="form-label">Motivo da associação</label>
+      <select class="form-select" id="jm-reason" onchange="toggleJustifyOther()">
+        <option value="exact">✅ Valores e datas coincidem exactamente</option>
+        <option value="wrong_bank">🏦 Lançado noutro banco por engano</option>
+        <option value="commission">💸 Diferença por comissão bancária</option>
+        <option value="transit">🔄 Transferência em trânsito (datas diferentes)</option>
+        <option value="irt">📋 Diferença por IRT / retenção na fonte</option>
+        <option value="rounding">🔢 Diferença por arredondamento</option>
+        <option value="other">✏️ Outro motivo (especificar)</option>
+      </select>
+    </div>
+
+    <!-- Campo banco errado -->
+    <div class="form-group" id="jm-wrong-bank-group" style="display:none">
+      <label class="form-label">Banco onde foi lançado por engano</label>
+      <select class="form-select" id="jm-wrong-bank">
+        <option value="BAI">BAI</option>
+        <option value="BFA">BFA</option>
+        <option value="Millennium">Millennium Atlântico</option>
+        <option value="BIC">BIC</option>
+        <option value="BPC">BPC</option>
+        <option value="Keve">Banco Keve</option>
+        <option value="Outro">Outro</option>
+      </select>
+    </div>
+
+    <!-- Observação livre -->
+    <div class="form-group" id="jm-obs-group">
+      <label class="form-label">Observação <span style="color:var(--text-dim);font-weight:400">(opcional)</span></label>
+      <textarea class="form-input" id="jm-obs" rows="3" placeholder="Ex: Confirmado com o responsável financeiro em 19/05/2026..." style="resize:vertical;min-height:70px"></textarea>
+    </div>
+
+    <button class="btn-submit" onclick="confirmMatch()">⇌ Confirmar Conciliação</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ══ ESTADO GLOBAL ══
+let _sb = null, _user = null, _profile = null;
+let _accounts = [], _movements = [], _accountingEntries = [];
+let _selectedBank = null, _selectedAccounting = null;
+let _matchedPairs = [];
+let _importedData = [];
+
+// ══ MOBILE: SIDEBAR ══
+function toggleSidebar() {
+  const sb = document.querySelector('.sidebar');
+  const ov = document.getElementById('sidebar-overlay');
+  if (!sb) return;
+  const isOpen = sb.classList.contains('open');
+  sb.classList.toggle('open', !isOpen);
+  ov.classList.toggle('open', !isOpen);
+  document.body.style.overflow = isOpen ? '' : 'hidden';
+}
+function closeSidebar() {
+  const sb = document.querySelector('.sidebar');
+  const ov = document.getElementById('sidebar-overlay');
+  if (!sb) return;
+  sb.classList.remove('open');
+  ov.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// ══ THEME TOGGLE ══
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme');
+  const next = current === 'light' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('cao_theme', next);
+  const btn = document.getElementById('theme-btn');
+  if (btn) btn.textContent = next === 'light' ? '🌙' : '☀️';
+}
+function initTheme() {
+  const saved = localStorage.getItem('cao_theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', saved);
+  const btn = document.getElementById('theme-btn');
+  if (btn) btn.textContent = saved === 'light' ? '🌙' : '☀️';
+}
+
+// ══ BOTTOM NAV ══
+function setActiveBottomNav(id) {
+  document.querySelectorAll('.bnav-item').forEach(el => el.classList.remove('active'));
+  const el = document.getElementById(id);
+  if (el) el.classList.add('active');
+  closeSidebar();
+}
+
+
+// ══ SUPABASE ══
+// ── CONFIGURAÇÃO SUPABASE ──────────────────────────────────────────────────
+// PASSO 1: Vai a https://supabase.com → cria ou abre o teu projecto
+// PASSO 2: Settings → API → copia os valores abaixo
+// PASSO 3: Executa o SQL de setup (ver comentário em initSb)
+// ⚠️  Deixa vazio para usar Modo Demo (sem persistência real)
+const SB_URL = 'https://nlisvprlzjfejuzcgmnp.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5saXN2cHJsempmZWp1emNnbW5wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2MDg5NjksImV4cCI6MjA5NDE4NDk2OX0.ictm2eHCkx6AU1uG7aKubbsz_Cr9yrUeZue9V0mCuzk';
+// ──────────────────────────────────────────────────────────────────────────
+
+async function initSb() {
+  if (!SB_URL || !SB_KEY) {
+    console.info('ℹ️  Modo Demo activo. Para usar base de dados real, configura SB_URL e SB_KEY.\n\nSQL para criar tabelas:\n' + `
+-- Executar no Supabase SQL Editor (https://app.supabase.com → SQL Editor)
+
+create extension if not exists "uuid-ossp";
+
+-- Tabela de perfis de utilizadores
+create table if not exists cao_users (
+  id uuid primary key references auth.users(id) on delete cascade,
+  name text not null,
+  company text,
+  email text,
+  role text default 'user',
+  plan text default 'trial',
+  trial_ends_at timestamptz,
+  created_at timestamptz default now()
+);
+alter table cao_users enable row level security;
+create policy "Users own data" on cao_users for all using (auth.uid() = id);
+
+-- Tabela de contas bancárias
+create table if not exists cao_accounts (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid references auth.users(id) on delete cascade not null,
+  name text not null,
+  bank text not null,
+  iban text,
+  currency text default 'AOA',
+  balance numeric(18,2) default 0,
+  status text default 'pendente',
+  created_at timestamptz default now()
+);
+alter table cao_accounts enable row level security;
+create policy "Users own accounts" on cao_accounts for all using (auth.uid() = user_id);
+
+-- Tabela de movimentos bancários (extracto)
+create table if not exists cao_movements (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid references auth.users(id) on delete cascade not null,
+  account_id uuid references cao_accounts(id) on delete set null,
+  date date not null,
+  description text not null,
+  reference text,
+  amount numeric(18,2) not null,
+  type text check (type in ('credit','debit')) not null,
+  status text default 'pendente' check (status in ('pendente','conciliado','ignorado')),
+  matched_entry_id uuid,
+  created_at timestamptz default now()
+);
+alter table cao_movements enable row level security;
+create policy "Users own movements" on cao_movements for all using (auth.uid() = user_id);
+
+-- Tabela de lançamentos do ERP
+create table if not exists cao_accounting_entries (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid references auth.users(id) on delete cascade not null,
+  date date not null,
+  description text not null,
+  reference text,
+  amount numeric(18,2) not null,
+  status text default 'pendente' check (status in ('pendente','conciliado','ignorado')),
+  matched_movement_id uuid,
+  created_at timestamptz default now()
+);
+alter table cao_accounting_entries enable row level security;
+create policy "Users own entries" on cao_accounting_entries for all using (auth.uid() = user_id);
+`);
+    return false;
+  }
+  try {
+    _sb = supabase.createClient(SB_URL, SB_KEY, {
+      auth: { persistSession: true, autoRefreshToken: true }
+    });
+    _sb.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_OUT') { _user = null; _profile = null; showView('landing'); }
+    });
+    const { data } = await _sb.auth.getSession();
+    if (data.session?.user) { _user = data.session.user; await loadUserAndRedirect(); }
+    console.log('✅ Supabase inicializado:', SB_URL);
+    return true;
+  } catch(e) { console.error('Supabase init error:', e); return false; }
+}
+
+async function loadUserAndRedirect() {
+  if (!_sb || !_user) return;
+  try {
+    const { data } = await _sb.from('cao_users').select('*').eq('id', _user.id).single();
+    if (data) {
+      _profile = data;
+      document.getElementById('app-avatar').textContent = data.name.charAt(0).toUpperCase();
+      document.getElementById('app-username').textContent = data.name;
+      document.getElementById('app-company').textContent = data.company || 'Empresa';
+    }
+  } catch(e) {}
+
+  // ── Verificar trial ──────────────────────────────────────────────────────
+  const trialStatus = checkTrialStatus(_profile);
+  if (trialStatus.expired) {
+    showView('trial-expired-page');
+    return;
+  }
+  if (trialStatus.active) {
+    showTrialBanner(trialStatus.daysLeft);
+  }
+  // ────────────────────────────────────────────────────────────────────────
+
+  showView('app-main');
+  // Mostrar menu admin se for administrador
+  if (_profile?.role === 'admin') {
+    document.getElementById('sb-section-admin').style.display = '';
+    document.getElementById('sb-item-admin').style.display = '';
+  }
+  await loadRealData();
+  logAudit('Login', 'Sessão iniciada');
+}
+
+function checkTrialStatus(profile) {
+  if (!profile) return { active: false, expired: false, daysLeft: 0 };
+  // Plano pago → sem restrições
+  if (profile.plan === 'business' || profile.plan === 'enterprise') {
+    return { active: false, expired: false, daysLeft: 999 };
+  }
+  // Admin → sem restrições
+  if (profile.role === 'admin') return { active: false, expired: false, daysLeft: 999 };
+
+  const trialEnd = profile.trial_ends_at ? new Date(profile.trial_ends_at) : null;
+  if (!trialEnd) return { active: false, expired: false, daysLeft: 0 };
+
+  const now = new Date();
+  const msLeft = trialEnd - now;
+  const daysLeft = Math.ceil(msLeft / 86400000);
+
+  if (daysLeft <= 0) return { active: false, expired: true, daysLeft: 0 };
+  return { active: true, expired: false, daysLeft };
+}
+
+function showTrialBanner(daysLeft) {
+  const existing = document.getElementById('trial-banner');
+  if (existing) existing.remove();
+  const color = daysLeft <= 5 ? 'var(--red)' : daysLeft <= 10 ? 'var(--amber)' : 'var(--gold)';
+  const bg = daysLeft <= 5 ? 'rgba(235,87,87,0.1)' : daysLeft <= 10 ? 'rgba(245,158,11,0.1)' : 'var(--gold-dim)';
+  const banner = document.createElement('div');
+  banner.id = 'trial-banner';
+  banner.style.cssText = `background:${bg};border-bottom:1px solid ${color};padding:8px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px;flex-wrap:wrap;`;
+  banner.innerHTML = `
+    <span style="color:${color};font-weight:600">
+      ⏳ Período de trial — <strong>${daysLeft} dia${daysLeft !== 1 ? 's' : ''} restante${daysLeft !== 1 ? 's' : ''}</strong>
+      ${daysLeft <= 5 ? ' · O teu acesso expira em breve!' : ''}
+    </span>
+    <button onclick="showView('trial-expired-page')" style="background:${color};color:#000;border:none;border-radius:4px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font-body)">
+      Ver planos →
+    </button>`;
+  const mainArea = document.querySelector('.main-area');
+  if (mainArea) mainArea.prepend(banner);
+}
+
+// ══ CARREGAR DADOS REAIS DO SUPABASE ══
+async function loadRealData() {
+  if (!_sb || !_user) return;
+  showToast('🔄 A carregar dados...');
+  try {
+    const { data: accs } = await _sb.from('cao_accounts').select('*').eq('user_id', _user.id).order('created_at', { ascending: false });
+    if (accs) _accounts = accs.map(a => ({ id: a.id, name: a.name, bank: a.bank || '', iban: a.iban || '', currency: a.currency || 'AOA', balance: parseFloat(a.balance) || 0, status: a.status || 'pendente' }));
+
+    const { data: movs } = await _sb.from('cao_movements').select('*').eq('user_id', _user.id).order('date', { ascending: false });
+    if (movs) _movements = movs.map(m => ({ id: m.id, date: m.date, description: m.description, reference: m.reference || '', type: m.type || 'debit', amount: parseFloat(m.amount) || 0, status: m.status || 'pendente', account: m.account_id || '' }));
+
+    const { data: entries } = await _sb.from('cao_accounting_entries').select('*').eq('user_id', _user.id).order('date', { ascending: false });
+    if (entries) _accountingEntries = entries.map(e => ({ id: e.id, date: e.date, description: e.description, reference: e.reference || '', amount: parseFloat(e.amount) || 0, status: e.status || 'pendente' }));
+
+    renderDashboard();
+    renderMovementsTable(_movements);
+    populateAccountDropdowns();
+    loadDashboard();
+    if (_accounts.length === 0 && _movements.length === 0) showToast('ℹ️ Começa por adicionar uma conta bancária.');
+    else showToast('✅ Dados carregados!');
+  } catch(e) {
+    console.error('loadRealData error:', e);
+    showToast('⚠️ Erro ao carregar dados. A usar modo demo.');
+    loadDemoData();
+  }
+}
+
+// ══ AUTH ══
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass = document.getElementById('login-password').value;
+  const err = document.getElementById('login-error');
+  const btn = document.getElementById('login-btn');
+  err.classList.remove('show');
+  if (!email || !pass) { err.textContent = '⚠️ Preenche email e password.'; err.classList.add('show'); return; }
+  btn.textContent = 'A entrar...'; btn.disabled = true;
+
+  if (!_sb) {
+    // DEMO MODE sem Supabase
+    if (email === 'demo@conciliacao.ao' && pass === 'demo123') {
+      _user = { id: 'demo', email };
+      _profile = { name: 'Demo User', company: 'Empresa Demo' };
+      document.getElementById('app-avatar').textContent = 'D';
+      document.getElementById('app-username').textContent = 'Demo User';
+      document.getElementById('app-company').textContent = 'Empresa Demo';
+      btn.textContent = 'Entrar →'; btn.disabled = false;
+      showView('app-main');
+      loadDemoData();
+      return;
+    }
+    err.textContent = '❌ Erro de ligação ao servidor. Tenta novamente.';
+    err.classList.add('show'); btn.textContent = 'Entrar →'; btn.disabled = false; return;
+  }
+  try {
+    const { data, error } = await _sb.auth.signInWithPassword({ email, password: pass });
+    if (error) throw error;
+    if (data?.user) {
+      _user = data.user;
+      console.log('✅ Login OK, user:', _user.id);
+      await loadUserAndRedirect();
+    } else {
+      throw new Error('Sem dados de utilizador');
+    }
+  } catch(e) {
+    console.error('Login error:', e);
+    err.textContent = '❌ ' + (e.message || 'Email ou password incorrectos.');
+    err.classList.add('show');
+  } finally { btn.textContent = 'Entrar →'; btn.disabled = false; }
+}
+
+function demoLogin() {
+  document.getElementById('login-email').value = 'demo@conciliacao.ao';
+  document.getElementById('login-password').value = 'demo123';
+  showView('login-page');
+  setTimeout(() => doLogin(), 300);
+}
+
+async function doRegister() {
+  const name = document.getElementById('reg-name').value.trim();
+  const company = document.getElementById('reg-company').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
+  const pass = document.getElementById('reg-password').value;
+  const err = document.getElementById('register-error');
+  const btn = document.getElementById('reg-btn');
+  err.classList.remove('show');
+  if (!name || !email || !pass) { err.textContent = '⚠️ Preenche todos os campos obrigatórios.'; err.classList.add('show'); return; }
+  if (pass.length < 6) { err.textContent = '⚠️ Password deve ter pelo menos 6 caracteres.'; err.classList.add('show'); return; }
+
+  if (!_sb) {
+    err.textContent = '⚠️ Para criar conta real, configura o Supabase. Por agora usa a demonstração (demo@conciliacao.ao / demo123).';
+    err.classList.add('show'); return;
+  }
+  btn.textContent = 'A criar conta...'; btn.disabled = true;
+  try {
+    const { data, error } = await _sb.auth.signUp({ email, password: pass });
+    if (error) throw error;
+    const userId = data?.user?.id;
+    if (userId) {
+      const trialEnds = new Date();
+      trialEnds.setDate(trialEnds.getDate() + 30);
+      await _sb.from('cao_users').upsert({
+        id: userId, name, company, email,
+        plan: 'trial',
+        trial_ends_at: trialEnds.toISOString()
+      });
+    }
+    showToast('✅ Conta criada! Tens 30 dias de acesso gratuito.');
+    showView('login-page');
+  } catch(e) {
+    err.textContent = '❌ ' + (e.message || 'Erro ao criar conta.');
+    err.classList.add('show');
+  } finally { btn.textContent = 'Criar conta grátis →'; btn.disabled = false; }
+}
+
+function requestPlan(plan) {
+  const name = _profile?.name || '';
+  const company = _profile?.company || '';
+  const email = _user?.email || '';
+  const subject = encodeURIComponent(`ConciliaçAO — Subscrição ${plan === 'business' ? 'Business' : 'Enterprise'}`);
+  const body = encodeURIComponent(`Olá,\n\nGostaria de subscrever o plano ${plan === 'business' ? 'Business (15.000 Kz/mês)' : 'Enterprise'}.\n\nNome: ${name}\nEmpresa: ${company}\nEmail: ${email}\n\nAguardo contacto.\n\nObrigado.`);
+  window.open(`mailto:info@conciliacao.ao?subject=${subject}&body=${body}`);
+  showToast('📧 A abrir email para subscrição...');
+}
+
+function contactSupport() {
+  const email = _user?.email || '';
+  const subject = encodeURIComponent('ConciliaçAO — Suporte / Trial expirado');
+  const body = encodeURIComponent(`Olá,\n\nO meu trial expirou e preciso de ajuda.\n\nEmail da conta: ${email}\n\nObrigado.`);
+  window.open(`mailto:info@conciliacao.ao?subject=${subject}&body=${body}`);
+}
+
+async function doLogout() {
+  if (_sb) _sb.auth.signOut();
+  _user = null; _profile = null; _accounts = []; _movements = [];
+  showView('landing');
+  showToast('👋 Sessão terminada. Até logo!');
+}
+
+// ══ DEMO DATA ══
+function loadDemoData() {
+  _accounts = [
+    { id: '1', name: 'Conta Corrente Principal', bank: 'BFA', iban: 'AO06 0040 0000 0001', currency: 'AOA', balance: 15420500.00, status: 'conciliada' },
+    { id: '2', name: 'Conta USD', bank: 'BAI', iban: 'AO06 0050 0000 0002', currency: 'USD', balance: 48200.00, status: 'pendente' },
+    { id: '3', name: 'Conta Poupança', bank: 'Millennium', iban: 'AO06 0060 0000 0003', currency: 'AOA', balance: 3200000.00, status: 'conciliada' }
+  ];
+  _movements = [
+    { id: '1', date: '2026-05-15', description: 'PAGAMENTO FORNECEDOR CONSTRUTECH', reference: 'TRF001234', type: 'debit', amount: -450000, status: 'conciliado', account: 'BFA' },
+    { id: '2', date: '2026-05-14', description: 'COBRANÇA CLIENTE EPASB', reference: 'COB002345', type: 'credit', amount: 1200000, status: 'conciliado', account: 'BFA' },
+    { id: '3', date: '2026-05-13', description: 'INSS — SEGURANÇA SOCIAL', reference: 'INSS052026', type: 'debit', amount: -187500, status: 'pendente', account: 'BFA' },
+    { id: '4', date: '2026-05-12', description: 'RENDAS ESCRITÓRIO LUANDA', reference: 'REN001', type: 'debit', amount: -350000, status: 'pendente', account: 'BFA' },
+    { id: '5', date: '2026-05-10', description: 'TRANSFERÊNCIA RECEBIDA BAI', reference: 'TRF009876', type: 'credit', amount: 800000, status: 'conciliado', account: 'BFA' },
+    { id: '6', date: '2026-05-08', description: 'SERVIÇOS TELEFONE UNITEL', reference: 'UNITEL052026', type: 'debit', amount: -45000, status: 'pendente', account: 'BFA' },
+  ];
+  _accountingEntries = [
+    { id: 'a1', date: '2026-05-15', description: 'Forn. Construtech — Factura 1234', reference: 'FT1234', amount: -450000, status: 'pendente' },
+    { id: 'a2', date: '2026-05-14', description: 'Recebimento EPASB Lda', reference: 'REC345', amount: 1200000, status: 'pendente' },
+    { id: 'a3', date: '2026-05-13', description: 'Contribuições INSS Maio/2026', reference: 'INSS/05/26', amount: -187500, status: 'pendente' },
+    { id: 'a4', date: '2026-05-12', description: 'Renda escritório — Maio', reference: 'REN/05/26', amount: -350000, status: 'pendente' },
+  ];
+  renderDashboard();
+  renderMovementsTable(_movements);
+  populateAccountDropdowns();
+  loadDashboard();
+}
+
+// ══ DASHBOARD ══
+async function loadDashboard() {
+  const conciliadas = _movements.filter(m => m.status === 'conciliado').length;
+  const pendentes = _movements.filter(m => m.status === 'pendente').length;
+  const total = _movements.length;
+  const rate = total > 0 ? Math.round((conciliadas / total) * 100) : 0;
+  document.getElementById('kpi-today').textContent = conciliadas;
+  document.getElementById('kpi-pending').textContent = pendentes;
+  document.getElementById('kpi-rate').textContent = rate + '%';
+  document.getElementById('kpi-accounts').textContent = _accounts.length;
+  document.getElementById('pending-count').textContent = pendentes;
+  renderDashboard();
+}
+
+function renderDashboard() {
+  // Estado das contas
+  const accList = document.getElementById('accounts-status-list');
+  if (_accounts.length === 0) {
+    accList.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-dim);font-size:13px">Ainda não tens contas. <span style="color:var(--gold);cursor:pointer" onclick="openAddAccountModal()">Adiciona uma →</span></div>';
+  } else {
+    accList.innerHTML = _accounts.map(a => `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-size:13px;font-weight:600">${a.name}</div>
+          <div style="font-size:11px;color:var(--text-dim);font-family:var(--font-mono)">${a.bank} · ${a.currency}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-family:var(--font-mono);font-size:13px;font-weight:600">${a.balance.toLocaleString('pt-PT')} ${a.currency}</div>
+          <span class="badge ${a.status === 'conciliada' ? 'badge-green' : 'badge-amber'}" style="margin-top:4px">${a.status}</span>
+        </div>
+      </div>`).join('');
+  }
+
+  // Últimas conciliações
+  const matched = _movements.filter(m => m.status === 'conciliado').slice(0,5);
+  const recentList = document.getElementById('recent-matches-list');
+  if (matched.length === 0) {
+    recentList.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-dim);font-size:13px">Sem conciliações ainda.</div>';
+  } else {
+    recentList.innerHTML = matched.map(m => `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.03)">
+        <div>
+          <div style="font-size:12px;font-weight:600;color:var(--text)">${m.description.substring(0,30)}...</div>
+          <div style="font-size:11px;color:var(--text-dim);font-family:var(--font-mono)">${m.date}</div>
+        </div>
+        <div style="font-family:var(--font-mono);font-size:13px;font-weight:700;color:${m.amount > 0 ? 'var(--green)' : 'var(--red)'}">${m.amount.toLocaleString('pt-PT')} Kz</div>
+      </div>`).join('');
+  }
+
+  // Actividade
+  const actList = document.getElementById('activity-list');
+  const user = _profile?.name || 'Demo User';
+  actList.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;align-items:center;gap:12px;padding:10px;background:var(--bg3);border-radius:8px">
+        <span style="font-size:18px">✅</span>
+        <div><div style="font-size:13px;font-weight:600">${user} conciliou ${_movements.filter(m=>m.status==='conciliado').length} movimentos</div><div style="font-size:11px;color:var(--text-dim)">Hoje · ${new Date().toLocaleTimeString('pt-PT', {hour:'2-digit',minute:'2-digit'})}</div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;padding:10px;background:var(--bg3);border-radius:8px">
+        <span style="font-size:18px">📂</span>
+        <div><div style="font-size:13px;font-weight:600">Extracto BFA importado — ${_movements.length} movimentos</div><div style="font-size:11px;color:var(--text-dim)">Hoje</div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;padding:10px;background:var(--bg3);border-radius:8px">
+        <span style="font-size:18px">🔁</span>
+        <div><div style="font-size:13px;font-weight:600">Auto-match aplicou 2 regras automáticas</div><div style="font-size:11px;color:var(--text-dim)">Hoje</div></div>
+      </div>
+    </div>`;
+
+  // Contas no grid
+  const grid = document.getElementById('accounts-grid');
+  const addBtn = `<div style="border:2px dashed var(--border);border-radius:var(--radius);padding:32px;text-align:center;cursor:pointer;color:var(--text-dim)" onclick="openAddAccountModal()"><div style="font-size:32px;margin-bottom:8px">+</div><div style="font-size:14px">Adicionar conta</div></div>`;
+  grid.innerHTML = _accounts.map(a => `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:24px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+        <div style="font-size:24px">🏦</div>
+        <span class="badge ${a.status === 'conciliada' ? 'badge-green' : 'badge-amber'}">${a.status}</span>
+      </div>
+      <div style="font-family:var(--font-display);font-size:16px;font-weight:700;margin-bottom:4px">${a.name}</div>
+      <div style="font-size:12px;color:var(--text-soft);margin-bottom:12px">${a.bank}</div>
+      <div style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);margin-bottom:14px">${a.iban}</div>
+      <div style="font-family:var(--font-display);font-size:22px;font-weight:800;color:var(--gold)">${a.balance.toLocaleString('pt-PT')} <span style="font-size:12px;font-family:var(--font-body);opacity:.5">${a.currency}</span></div>
+    </div>`).join('') + addBtn;
+}
+
+// ══ MOVIMENTOS ══
+function renderMovementsTable(data) {
+  const tbody = document.getElementById('movements-table');
+  if (!data || data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-dim)">Ainda não tens movimentos. <span style="color:var(--gold);cursor:pointer" onclick="openImportModal()">Importar extracto →</span></td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map(m => `
+    <tr>
+      <td class="mono" data-label="Data">${m.date}</td>
+      <td data-label="Descrição" style="color:var(--text);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m.description}</td>
+      <td class="mono" data-label="Referência">${m.reference}</td>
+      <td data-label="Tipo"><span class="badge ${m.type === 'credit' ? 'badge-green' : 'badge-red'}">${m.type === 'credit' ? 'Crédito' : 'Débito'}</span></td>
+      <td class="mono" data-label="Valor" style="color:${m.amount > 0 ? 'var(--green)' : 'var(--red)'}; font-weight:700">${m.amount.toLocaleString('pt-PT')} Kz</td>
+      <td data-label="Estado"><span class="badge ${m.status === 'conciliado' ? 'badge-green' : 'badge-amber'}">${m.status}</span></td>
+      <td data-label="Conta" style="color:var(--text-dim)">${m.account}</td>
+    </tr>`).join('');
+}
+
+function filterMovements(q) {
+  const filtered = _movements.filter(m => m.description.toLowerCase().includes(q.toLowerCase()) || m.reference.toLowerCase().includes(q.toLowerCase()));
+  renderMovementsTable(filtered);
+}
+
+function filterMovementsByType(type) {
+  const filtered = type ? _movements.filter(m => m.type === type) : _movements;
+  renderMovementsTable(filtered);
+}
+
+// ══ MATCHING ══
+function loadReconcileData() {
+  const bankEl = document.getElementById('bank-items');
+  const accEl = document.getElementById('accounting-items');
+  const pending = _movements.filter(m => m.status === 'pendente');
+  const pendingAcc = _accountingEntries.filter(e => e.status === 'pendente');
+
+  if (pending.length === 0) {
+    bankEl.innerHTML = '<div style="text-align:center;padding:24px;color:var(--green);font-size:13px">✅ Todos os movimentos conciliados!</div>';
+  } else {
+    bankEl.innerHTML = pending.map(m => `
+      <div class="match-item" id="bank-${m.id}" onclick="selectBankItem('${m.id}')">
+        <div class="match-ref">${m.reference} · ${m.date}</div>
+        <div class="match-desc">${m.description.substring(0,35)}${m.description.length>35?'...':''}</div>
+        <div class="match-amount ${m.amount > 0 ? 'credit' : 'debit'}">${m.amount.toLocaleString('pt-PT')} Kz</div>
+      </div>`).join('');
+  }
+
+  if (pendingAcc.length === 0) {
+    accEl.innerHTML = '<div style="text-align:center;padding:24px;color:var(--green);font-size:13px">✅ Todos os lançamentos conciliados!</div>';
+  } else {
+    accEl.innerHTML = pendingAcc.map(e => `
+      <div class="match-item" id="acc-${e.id}" onclick="selectAccItem('${e.id}')">
+        <div class="match-ref">${e.reference} · ${e.date}</div>
+        <div class="match-desc">${e.description.substring(0,35)}${e.description.length>35?'...':''}</div>
+        <div class="match-amount ${e.amount > 0 ? 'credit' : 'debit'}">${e.amount.toLocaleString('pt-PT')} Kz</div>
+      </div>`).join('');
+  }
+
+  updateMatchStats();
+  updateBalances();
+}
+
+function selectBankItem(id) {
+  document.querySelectorAll('[id^="bank-"]').forEach(el => el.classList.remove('selected'));
+  const el = document.getElementById('bank-' + id);
+  if (el) el.classList.add('selected');
+  _selectedBank = id;
+  checkMatchReady();
+}
+
+function selectAccItem(id) {
+  document.querySelectorAll('[id^="acc-"]').forEach(el => el.classList.remove('selected'));
+  const el = document.getElementById('acc-' + id);
+  if (el) el.classList.add('selected');
+  _selectedAccounting = id;
+  checkMatchReady();
+}
+
+function checkMatchReady() {
+  document.getElementById('btn-match').disabled = !(_selectedBank && _selectedAccounting);
+}
+
+function openMatchModal() {
+  if (!_selectedBank || !_selectedAccounting) return;
+  const bankItem = _movements.find(m => m.id === _selectedBank);
+  const accItem = _accountingEntries.find(e => e.id === _selectedAccounting);
+  if (!bankItem || !accItem) return;
+
+  // Preencher preview
+  document.getElementById('jm-bank-desc').textContent = bankItem.description.substring(0, 40);
+  document.getElementById('jm-bank-date').textContent = bankItem.date + ' · ' + bankItem.reference;
+  document.getElementById('jm-bank-amount').textContent = bankItem.amount.toLocaleString('pt-PT') + ' Kz';
+  document.getElementById('jm-bank-amount').style.color = bankItem.amount >= 0 ? 'var(--green)' : 'var(--red)';
+
+  document.getElementById('jm-acc-desc').textContent = accItem.description.substring(0, 40);
+  document.getElementById('jm-acc-date').textContent = accItem.date + ' · ' + accItem.reference;
+  document.getElementById('jm-acc-amount').textContent = accItem.amount.toLocaleString('pt-PT') + ' Kz';
+  document.getElementById('jm-acc-amount').style.color = accItem.amount >= 0 ? 'var(--green)' : 'var(--red)';
+
+  // Diferença de valores
+  const diff = Math.abs(Math.abs(bankItem.amount) - Math.abs(accItem.amount));
+  const diffAlert = document.getElementById('jm-diff-alert');
+  if (diff > 0.01) {
+    diffAlert.style.display = 'block';
+    document.getElementById('jm-diff-value').textContent = diff.toLocaleString('pt-PT');
+  } else {
+    diffAlert.style.display = 'none';
+  }
+
+  // Limpar campos
+  document.getElementById('jm-reason').value = diff > 0.01 ? 'commission' : 'exact';
+  document.getElementById('jm-obs').value = '';
+  toggleJustifyOther();
+  openModal('match-justify-modal');
+}
+
+function toggleJustifyOther() {
+  const reason = document.getElementById('jm-reason').value;
+  document.getElementById('jm-wrong-bank-group').style.display = reason === 'wrong_bank' ? 'block' : 'none';
+}
+
+function confirmMatch() {
+  if (!_selectedBank || !_selectedAccounting) return;
+  const bankItem = _movements.find(m => m.id === _selectedBank);
+  const accItem = _accountingEntries.find(e => e.id === _selectedAccounting);
+  if (!bankItem || !accItem) return;
+
+  const reason = document.getElementById('jm-reason').value;
+  const obs = document.getElementById('jm-obs').value.trim();
+  const wrongBank = document.getElementById('jm-wrong-bank').value;
+
+  // Construir texto de justificação
+  const reasonLabels = {
+    exact: 'Valores e datas coincidem exactamente',
+    wrong_bank: `Lançado no ${wrongBank} por engano — pertence ao ${bankItem.account || 'banco correcto'}`,
+    commission: 'Diferença por comissão bancária',
+    transit: 'Transferência em trânsito (datas diferentes)',
+    irt: 'Diferença por IRT / retenção na fonte',
+    rounding: 'Diferença por arredondamento',
+    other: 'Outro motivo'
+  };
+  const justification = reasonLabels[reason] + (obs ? ` — ${obs}` : '');
+
+  bankItem.status = 'conciliado';
+  accItem.status = 'conciliado';
+
+  if (_sb && _user) {
+    (async () => {
+      await _sb.from('cao_movements').update({ status: 'conciliado' }).eq('id', bankItem.id).eq('user_id', _user.id);
+      await _sb.from('cao_accounting_entries').update({ status: 'conciliado' }).eq('id', accItem.id).eq('user_id', _user.id);
+    })();
+  }
+
+  _selectedBank = null;
+  _selectedAccounting = null;
+  closeModal('match-justify-modal');
+  showToast('✅ Movimentos conciliados!');
+  logAudit('Conciliação', `${bankItem.description.substring(0,25)} ↔ ${accItem.description.substring(0,25)} | ${justification}`);
+  loadReconcileData();
+  loadDashboard();
+}
+
+function manualMatch() { openMatchModal(); }
+
+function unmatchSelected() {
+  if (_selectedBank) {
+    const item = _movements.find(m => m.id === _selectedBank);
+    if (item) { item.status = 'pendente'; showToast('↩ Conciliação desfeita!'); loadReconcileData(); loadDashboard(); }
+  }
+}
+
+function autoMatch() {
+  let matched = 0;
+  const pendingMovements = _movements.filter(m => m.status === 'pendente');
+  const pendingEntries = _accountingEntries.filter(e => e.status === 'pendente');
+  const usedEntries = new Set();
+
+  // Score-based matching: each candidate scored, best match wins
+  for (const mov of pendingMovements) {
+    let bestEntry = null, bestScore = 0;
+
+    for (const entry of pendingEntries) {
+      if (usedEntries.has(entry.id)) continue;
+      const score = matchScore(mov, entry);
+      if (score > bestScore) { bestScore = score; bestEntry = entry; }
+    }
+
+    // Threshold: mínimo 60 pontos para conciliar automaticamente
+    if (bestEntry && bestScore >= 60) {
+      mov.status = 'conciliado';
+      bestEntry.status = 'conciliado';
+      usedEntries.add(bestEntry.id);
+      matched++;
+    }
+  }
+
+  // Persistir no Supabase se disponível
+  if (_sb && _user && matched > 0) {
+    const concMovIds = _movements.filter(m => m.status === 'conciliado').map(m => m.id);
+    const concAccIds = _accountingEntries.filter(e => e.status === 'conciliado').map(e => e.id);
+    (async () => {
+      if (concMovIds.length) await _sb.from('cao_movements').update({ status: 'conciliado' }).in('id', concMovIds).eq('user_id', _user.id);
+      if (concAccIds.length) await _sb.from('cao_accounting_entries').update({ status: 'conciliado' }).in('id', concAccIds).eq('user_id', _user.id);
+    })();
+  }
+
+  showToast(`⚡ Auto-match: ${matched} par(es) conciliado(s)!`);
+  logAudit('Auto-match', `${matched} movimentos conciliados automaticamente`);
+  loadReconcileData();
+  loadDashboard();
+}
+
+// ── Motor de scoring de matching ──────────────────────────────────────────
+// Retorna 0-100: valor (40pts) + data (35pts) + referência/desc (25pts)
+function matchScore(mov, entry) {
+  let score = 0;
+
+  // 1. Valor (40 pontos) — tolerância de 0.01 Kz para arredondamentos
+  const diff = Math.abs(Math.abs(mov.amount) - Math.abs(entry.amount));
+  if (diff < 0.01) score += 40;
+  else if (diff < Math.abs(mov.amount) * 0.001) score += 30; // dentro de 0.1%
+  else if (diff < Math.abs(mov.amount) * 0.01)  score += 15; // dentro de 1%
+  else return 0; // Diferença de valor > 1% → descarta imediatamente
+
+  // 2. Data (35 pontos) — extractos angolanos às vezes têm 1-3 dias de desfasamento
+  const dMov = new Date(mov.date);
+  const dAcc = new Date(entry.date);
+  const daysDiff = Math.abs((dMov - dAcc) / 86400000);
+  if (daysDiff === 0) score += 35;
+  else if (daysDiff <= 1) score += 28;
+  else if (daysDiff <= 3) score += 18;
+  else if (daysDiff <= 7) score += 8;
+  // mais de 7 dias → 0 pontos de data mas não descarta
+
+  // 3. Referência (15 pontos) — match exato ou parcial
+  const refA = (mov.reference || '').toUpperCase().replace(/\s/g,'');
+  const refB = (entry.reference || '').toUpperCase().replace(/\s/g,'');
+  if (refA && refB && refA === refB) score += 15;
+  else if (refA && refB && (refA.includes(refB) || refB.includes(refA))) score += 10;
+
+  // 4. Descrição / keywords (10 pontos)
+  const dA = normalizeDesc(mov.description);
+  const dB = normalizeDesc(entry.description);
+  const wordsA = dA.split(' ').filter(w => w.length > 3);
+  const wordsB = new Set(dB.split(' ').filter(w => w.length > 3));
+  const commonWords = wordsA.filter(w => wordsB.has(w)).length;
+  if (commonWords > 0) score += Math.min(10, commonWords * 3);
+
+  return score;
+}
+
+function normalizeDesc(s) {
+  return (s || '').toUpperCase()
+    .replace(/[ÁÀÂÃ]/g,'A').replace(/[ÉÈÊ]/g,'E').replace(/[ÍÌÎ]/g,'I')
+    .replace(/[ÓÒÔÕ]/g,'O').replace(/[ÚÙÛ]/g,'U').replace(/Ç/g,'C')
+    .replace(/[^A-Z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+}
+// ──────────────────────────────────────────────────────────────────────────
+
+function updateMatchStats() {
+  const matched = _movements.filter(m => m.status === 'conciliado').length;
+  const pending = _movements.filter(m => m.status === 'pendente').length;
+  document.getElementById('matched-count').textContent = matched + ' conciliados';
+  document.getElementById('unmatched-count').textContent = pending + ' pendentes';
+}
+
+function updateBalances() {
+  const bankTotal = _movements.reduce((s, m) => s + m.amount, 0);
+  const accTotal = _accountingEntries.reduce((s, e) => s + e.amount, 0);
+  const diff = bankTotal - accTotal;
+  document.getElementById('saldo-banco').textContent = bankTotal.toLocaleString('pt-PT') + ' Kz';
+  document.getElementById('saldo-contab').textContent = accTotal.toLocaleString('pt-PT') + ' Kz';
+  const diffEl = document.getElementById('saldo-diff');
+  diffEl.textContent = diff.toLocaleString('pt-PT') + ' Kz';
+  diffEl.className = Math.abs(diff) < 0.01 ? 'diff-ok' : 'diff-err';
+}
+
+// ══ IMPORTAR EXTRACTO ══
+function handleDragOver(e) { e.preventDefault(); document.getElementById('upload-zone').classList.add('drag-over'); }
+function handleDrop(e) { e.preventDefault(); document.getElementById('upload-zone').classList.remove('drag-over'); const file = e.dataTransfer.files[0]; if (file) processFile(file); }
+function handleFileSelect(e) { const file = e.target.files[0]; if (file) processFile(file); }
+
+function processFile(file) {
+  document.getElementById('file-name').textContent = file.name;
+  document.getElementById('file-preview').style.display = 'block';
+  document.getElementById('import-btn').disabled = true;
+
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const raw = ev.target.result;
+      _importedData = parseAngolaBankCSV(raw, file.name);
+      document.getElementById('file-info').textContent = `${_importedData.length} movimentos detectados`;
+      document.getElementById('import-btn').disabled = _importedData.length === 0;
+      document.getElementById('file-progress').style.width = '100%';
+      if (_importedData.length === 0) showToast('⚠️ Nenhum movimento reconhecido. Verifica o formato do ficheiro.');
+    } catch(e) {
+      showToast('❌ Erro ao ler ficheiro: ' + e.message);
+      console.error(e);
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+// ── Parser CSV multi-banco Angola ──────────────────────────────────────────
+// Suporta: BFA, BAI, Millennium Atlântico, BIC, BPC, Keve
+function parseAngolaBankCSV(raw, filename) {
+  // Detectar separador (vírgula, ponto-e-vírgula, tab)
+  const sep = detectSeparator(raw);
+  const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+  if (lines.length < 2) return [];
+
+  const fname = (filename || '').toLowerCase();
+  let bankName = 'Importado';
+  if (fname.includes('bfa')) bankName = 'BFA';
+  else if (fname.includes('bai')) bankName = 'BAI';
+  else if (fname.includes('millennium') || fname.includes('atlant')) bankName = 'Millennium';
+  else if (fname.includes('bic')) bankName = 'BIC';
+  else if (fname.includes('bpc')) bankName = 'BPC';
+
+  // Encontrar linha de cabeçalho (procura por palavras-chave comuns)
+  let headerIdx = 0;
+  const headerKeywords = /data|date|descri|movim|valor|amount|debito|credito|saldo|referencia|ref\b/i;
+  for (let i = 0; i < Math.min(15, lines.length); i++) {
+    if (headerKeywords.test(lines[i])) { headerIdx = i; break; }
+  }
+
+  const headers = splitCSVLine(lines[headerIdx], sep).map(h =>
+    h.toLowerCase().replace(/[^a-záàâãéèêíóôõúüç\s]/gi,'').trim()
+  );
+
+  // Mapear colunas por nome (tolera variações dos bancos angolanos)
+  const colMap = {};
+  headers.forEach((h, i) => {
+    if (/^data|^date|^dt\b|^dia/.test(h)) colMap.date = colMap.date ?? i;
+    else if (/descri|histor|narrat|memo|detalhe|movimento/.test(h)) colMap.desc = colMap.desc ?? i;
+    else if (/refer|doc\b|cheque|num\b|nº/.test(h)) colMap.ref = colMap.ref ?? i;
+    else if (/debito|débito|saída|saida/.test(h)) colMap.debit = colMap.debit ?? i;
+    else if (/credito|crédito|entrada/.test(h)) colMap.credit = colMap.credit ?? i;
+    else if (/valor|amount|import/.test(h) && colMap.amount === undefined) colMap.amount = i;
+    else if (/saldo|balance/.test(h)) colMap.balance = colMap.balance ?? i;
+  });
+
+  // Se não encontrou colunas de débito/crédito separadas, tenta coluna única de valor
+  const results = [];
+  for (let i = headerIdx + 1; i < lines.length; i++) {
+    const parts = splitCSVLine(lines[i], sep);
+    if (parts.length < 2) continue;
+
+    const rawDate = colMap.date !== undefined ? parts[colMap.date] : parts[0];
+    const isoDate = parseAngolaDate(rawDate);
+    if (!isoDate) continue; // Linha sem data válida → skip
+
+    const desc = colMap.desc !== undefined ? parts[colMap.desc]?.trim() : parts[1]?.trim();
+    if (!desc) continue;
+
+    const ref = colMap.ref !== undefined ? parts[colMap.ref]?.trim() || '' : '';
+
+    let amount = 0;
+    if (colMap.debit !== undefined || colMap.credit !== undefined) {
+      const dVal = parseAngolaNumber(parts[colMap.debit] || '0');
+      const cVal = parseAngolaNumber(parts[colMap.credit] || '0');
+      if (cVal > 0) amount = cVal;
+      else if (dVal > 0) amount = -dVal;
+    } else if (colMap.amount !== undefined) {
+      amount = parseAngolaNumber(parts[colMap.amount] || '0');
+    } else {
+      // Fallback: última coluna numérica
+      for (let c = parts.length - 1; c >= 2; c--) {
+        const n = parseAngolaNumber(parts[c] || '');
+        if (!isNaN(n) && n !== 0) { amount = n; break; }
+      }
+    }
+
+    results.push({
+      id: 'imp_' + i + '_' + Date.now(),
+      date: isoDate,
+      description: desc,
+      reference: ref || ('REF' + String(i).padStart(4,'0')),
+      amount,
+      type: amount >= 0 ? 'credit' : 'debit',
+      status: 'pendente',
+      account: bankName
+    });
+  }
+  return results;
+}
+
+function detectSeparator(raw) {
+  const first = raw.split('\n')[0] || '';
+  const counts = { ',': 0, ';': 0, '\t': 0 };
+  for (const c of first) if (counts[c] !== undefined) counts[c]++;
+  return Object.entries(counts).sort((a,b) => b[1]-a[1])[0][0];
+}
+
+function splitCSVLine(line, sep) {
+  // Respeita campos entre aspas
+  const result = [];
+  let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') { inQ = !inQ; }
+    else if (c === sep && !inQ) { result.push(cur.trim().replace(/^"|"$/g,'')); cur = ''; }
+    else { cur += c; }
+  }
+  result.push(cur.trim().replace(/^"|"$/g,''));
+  return result;
+}
+
+function parseAngolaDate(raw) {
+  if (!raw) return null;
+  raw = raw.trim().replace(/['"]/g,'');
+  // dd/mm/yyyy ou dd-mm-yyyy ou dd.mm.yyyy
+  let m = raw.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
+  if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  // yyyy-mm-dd (ISO)
+  m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) return raw;
+  // dd/mm/yy
+  m = raw.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2})$/);
+  if (m) { const y = parseInt(m[3]) < 50 ? '20'+m[3] : '19'+m[3]; return `${y}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`; }
+  return null;
+}
+
+function parseAngolaNumber(raw) {
+  if (!raw) return 0;
+  raw = raw.trim().replace(/['"]/g,'').replace(/\s/g,'');
+  if (!raw || raw === '-' || raw === '') return 0;
+  // Formato angolano: 1.234.567,89 ou 1,234,567.89
+  const hasComma = raw.includes(',');
+  const hasDot = raw.includes('.');
+  if (hasComma && hasDot) {
+    // Qual é o separador decimal? O último que aparece
+    const lastComma = raw.lastIndexOf(',');
+    const lastDot = raw.lastIndexOf('.');
+    if (lastComma > lastDot) { raw = raw.replace(/\./g,'').replace(',','.'); }
+    else { raw = raw.replace(/,/g,''); }
+  } else if (hasComma) {
+    // Só vírgula: pode ser decimal (12,50) ou milhar (1,000)
+    const afterComma = raw.split(',')[1] || '';
+    if (afterComma.length <= 2) raw = raw.replace(',','.');
+    else raw = raw.replace(',','');
+  }
+  return parseFloat(raw) || 0;
+}
+// ──────────────────────────────────────────────────────────────────────────
+
+async function processImport() {
+  const account = document.getElementById('import-account').value;
+  if (!account) { showToast('⚠️ Selecciona uma conta bancária primeiro.'); return; }
+  if (_importedData.length === 0) {
+    // Usar dados demo se não há ficheiro real
+    _importedData = [
+      { id: 'imp1', date: '2026-05-17', description: 'PAGAMENTO CLIENTE NOVO', reference: 'PAG123', amount: 950000, type: 'credit', status: 'pendente', account },
+      { id: 'imp2', date: '2026-05-16', description: 'FORNECEDOR MATERIAL ESCRITÓRIO', reference: 'FRN456', amount: -78000, type: 'debit', status: 'pendente', account },
+    ];
+  }
+  if (_sb && _user) {
+    const toInsert = _importedData.map(m => ({
+      user_id: _user.id, account_id: account, date: m.date, description: m.description,
+      reference: m.reference, amount: m.amount, type: m.amount >= 0 ? 'credit' : 'debit', status: 'pendente'
+    }));
+    const { data: inserted, error } = await _sb.from('cao_movements').insert(toInsert).select();
+    if (!error && inserted) {
+      const mapped = inserted.map(m => ({ id: m.id, date: m.date, description: m.description, reference: m.reference || '', type: m.type, amount: parseFloat(m.amount), status: m.status, account: m.account_id }));
+      _movements = [..._movements, ...mapped];
+    } else {
+      _movements = [..._movements, ..._importedData];
+      if (error) console.error('Import error:', error);
+    }
+  } else {
+    _movements = [..._movements, ..._importedData];
+  }
+  closeModal('import-modal');
+  showToast(`✅ ${_importedData.length} movimentos importados com sucesso!`);
+  logAudit('Importação', `${_importedData.length} movimentos importados da conta ${account}`);
+  _importedData = [];
+  renderMovementsTable(_movements);
+  loadDashboard();
+  loadReconcileData();
+}
+
+// ══ CONTAS ══
+function populateAccountDropdowns() {
+  const options = _accounts.map(a => `<option value="${a.id}">${a.name} (${a.bank})</option>`).join('');
+  document.getElementById('reconcile-account').innerHTML = '<option value="">Selecciona conta</option>' + options;
+  document.getElementById('import-account').innerHTML = '<option value="">Selecciona uma conta</option>' + options;
+}
+
+async function addAccount() {
+  const bank = document.getElementById('acc-bank').value;
+  const name = document.getElementById('acc-name').value.trim();
+  const iban = document.getElementById('acc-iban').value.trim();
+  const currency = document.getElementById('acc-currency').value;
+  const balance = parseFloat(document.getElementById('acc-balance').value) || 0;
+  if (!name) { showToast('⚠️ Introduz um nome para a conta.'); return; }
+  if (!_sb || !_user) { showToast('❌ Sessão expirada. Faz login novamente.'); showView('login-page'); return; }
+  const { data, error } = await _sb.from('cao_accounts').insert({ name, bank, iban, currency, balance, status: 'pendente', user_id: _user.id }).select().single();
+  if (error) { showToast('❌ Erro ao guardar conta: ' + error.message); return; }
+  _accounts.push(data);
+  populateAccountDropdowns();
+  renderDashboard();
+  closeModal('add-account-modal');
+  showToast('✅ Conta bancária adicionada!');
+  logAudit('Nova conta', name + ' — ' + bank);
+  loadDashboard();
+}
+
+// ══ REGRAS ══
+function addRule() {
+  const name = document.getElementById('rule-name').value.trim();
+  if (!name) { showToast('⚠️ Introduz um nome para a regra.'); return; }
+  const tbody = document.getElementById('rules-table');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><strong>${name}</strong></td>
+    <td class="mono">${document.getElementById('rule-field').value} ${document.getElementById('rule-condition').value} "${document.getElementById('rule-value').value}"</td>
+    <td>${document.getElementById('rule-action').value}</td>
+    <td class="mono">0x</td>
+    <td><span class="badge badge-green">Activa</span></td>
+    <td><button class="btn btn-ghost" style="padding:5px 10px;font-size:11px" onclick="showToast('⚙️ Regra editada!')">Editar</button></td>`;
+  tbody.appendChild(tr);
+  closeModal('add-rule-modal');
+  showToast('✅ Regra criada com sucesso!');
+}
+
+// ══ RELATÓRIOS PDF REAIS ══════════════════════════════════════════════════
+function generateReport(type) {
+  const types = { mensal: 'Relatório Mensal', partidas: 'Partidas em Aberto', auditoria: 'Auditoria', anomalias: 'Anomalias' };
+  const label = types[type] || type;
+  showToast(`📄 A gerar ${label}...`);
+
+  try {
+    const { jsPDF } = window.jspdf;
+    if (!jsPDF) throw new Error('jsPDF não carregado');
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric' });
+    const timeStr = now.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+    const user = _profile?.name || _user?.email || 'Demo User';
+    const company = _profile?.company || 'Empresa Demo';
+
+    // ── Cabeçalho ──
+    doc.setFillColor(8, 9, 10);
+    doc.rect(0, 0, 210, 40, 'F');
+    doc.setTextColor(240, 192, 64);
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    doc.text('ConciliaçAO', 14, 18);
+    doc.setFontSize(9);
+    doc.setTextColor(138, 143, 152);
+    doc.text('Sistema de Conciliação Bancária', 14, 26);
+    doc.setTextColor(247, 248, 248);
+    doc.setFontSize(14);
+    doc.text(label, 14, 35);
+
+    // ── Meta ──
+    doc.setFillColor(22, 23, 24);
+    doc.rect(0, 40, 210, 22, 'F');
+    doc.setFontSize(8);
+    doc.setTextColor(98, 102, 109);
+    doc.text(`Empresa: ${company}`, 14, 48);
+    doc.text(`Gerado por: ${user}`, 14, 54);
+    doc.text(`Data: ${dateStr} às ${timeStr}`, 100, 48);
+    doc.text(`Período: ${now.toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' })}`, 100, 54);
+    doc.setDrawColor(35, 37, 42);
+    doc.line(0, 62, 210, 62);
+
+    let yPos = 70;
+
+    // ── KPIs ──
+    const conciliados = _movements.filter(m => m.status === 'conciliado').length;
+    const pendentes = _movements.filter(m => m.status === 'pendente').length;
+    const total = _movements.length;
+    const rate = total > 0 ? Math.round((conciliados / total) * 100) : 0;
+    const bankTotal = _movements.reduce((s, m) => s + m.amount, 0);
+    const accTotal = _accountingEntries.reduce((s, e) => s + e.amount, 0);
+    const diff = bankTotal - accTotal;
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(240, 192, 64);
+    doc.text('RESUMO DA CONCILIAÇÃO', 14, yPos);
+    yPos += 6;
+
+    const kpis = [
+      ['Total de Movimentos', total.toString()],
+      ['Conciliados', conciliados.toString()],
+      ['Pendentes', pendentes.toString()],
+      ['Taxa de Conciliação', rate + '%'],
+      ['Saldo Bancário', bankTotal.toLocaleString('pt-PT') + ' Kz'],
+      ['Saldo Contabilístico', accTotal.toLocaleString('pt-PT') + ' Kz'],
+      ['Diferença', diff.toLocaleString('pt-PT') + ' Kz'],
+    ];
+    kpis.forEach(([k, v], i) => {
+      const x = i % 2 === 0 ? 14 : 110;
+      const y = yPos + Math.floor(i / 2) * 8;
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(98, 102, 109);
+      doc.setFontSize(7);
+      doc.text(k, x, y);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(247, 248, 248);
+      doc.setFontSize(9);
+      doc.text(v, x, y + 4);
+    });
+    yPos += Math.ceil(kpis.length / 2) * 8 + 10;
+
+    // ── Tabela de movimentos ──
+    let tableData = [];
+    let tableTitle = '';
+    if (type === 'mensal' || type === 'auditoria') {
+      tableTitle = 'Movimentos Bancários';
+      tableData = _movements.map(m => [
+        m.date, m.description.substring(0, 35), m.reference,
+        m.type === 'credit' ? 'Crédito' : 'Débito',
+        m.amount.toLocaleString('pt-PT') + ' Kz',
+        m.status === 'conciliado' ? 'Conciliado' : 'Pendente'
+      ]);
+    } else if (type === 'partidas') {
+      tableTitle = 'Partidas em Aberto';
+      tableData = [
+        ..._movements.filter(m => m.status === 'pendente').map(m => [m.date, m.description.substring(0,35), m.reference, 'Extracto', m.amount.toLocaleString('pt-PT') + ' Kz', 'Pendente']),
+        ..._accountingEntries.filter(e => e.status === 'pendente').map(e => [e.date, e.description.substring(0,35), e.reference, 'Contabilidade', e.amount.toLocaleString('pt-PT') + ' Kz', 'Pendente'])
+      ];
+    } else if (type === 'anomalias') {
+      tableTitle = 'Anomalias Detectadas';
+      // Detectar duplicados por valor+data
+      const seen = new Map();
+      tableData = [];
+      _movements.forEach(m => {
+        const key = `${m.date}_${Math.abs(m.amount)}`;
+        if (seen.has(key)) {
+          tableData.push([m.date, m.description.substring(0,35), m.reference, 'DUPLICADO', m.amount.toLocaleString('pt-PT') + ' Kz', '⚠️ Duplicado']);
+        } else { seen.set(key, true); }
+      });
+      if (tableData.length === 0) tableData.push(['—', 'Nenhuma anomalia detectada', '—', '—', '—', '✅ OK']);
+    }
+
+    if (tableData.length > 0) {
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(240, 192, 64);
+      doc.text(tableTitle.toUpperCase(), 14, yPos);
+      yPos += 4;
+
+      doc.autoTable({
+        startY: yPos,
+        head: [['Data', 'Descrição', 'Referência', 'Tipo', 'Valor', 'Estado']],
+        body: tableData,
+        theme: 'grid',
+        styles: { fontSize: 7, cellPadding: 2, textColor: [138, 143, 152], lineColor: [35, 37, 42], lineWidth: 0.1 },
+        headStyles: { fillColor: [22, 23, 24], textColor: [240, 192, 64], fontStyle: 'bold', fontSize: 7 },
+        alternateRowStyles: { fillColor: [15, 16, 17] },
+        bodyStyles: { fillColor: [8, 9, 10] },
+        columnStyles: { 1: { cellWidth: 60 }, 4: { halign: 'right' } },
+        margin: { left: 14, right: 14 }
+      });
+      yPos = doc.lastAutoTable.finalY + 10;
+    }
+
+    // ── Rodapé ──
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let p = 1; p <= pageCount; p++) {
+      doc.setPage(p);
+      doc.setFontSize(7);
+      doc.setTextColor(62, 66, 73);
+      doc.text(`ConciliaçAO · Documento gerado automaticamente · Página ${p} de ${pageCount}`, 14, 290);
+      doc.text(`${dateStr} ${timeStr}`, 168, 290);
+    }
+
+    // ── Download ──
+    const filename = `ConciliaçAO_${type}_${now.toISOString().split('T')[0]}.pdf`;
+    doc.save(filename);
+    showToast(`✅ ${label} descarregado!`);
+
+    // Registar no histórico
+    const tbody = document.getElementById('reports-history');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td class="mono">${now.toLocaleDateString('pt-PT')} ${timeStr}</td><td><span class="badge badge-gold">${label}</span></td><td>${_accounts[0]?.name || '—'}</td><td class="mono">${now.toLocaleDateString('pt-PT',{month:'short',year:'numeric'})}</td><td>${user}</td><td><button class="btn btn-ghost" style="padding:5px 10px;font-size:11px" onclick="generateReport('${type}')">⬇ Re-gerar</button></td>`;
+    if (tbody.querySelector('td[colspan]')) tbody.innerHTML = '';
+    tbody.prepend(tr);
+    logAudit('Relatório', `${label} gerado e descarregado`);
+
+  } catch(e) {
+    console.error('PDF error:', e);
+    showToast('❌ Erro ao gerar PDF: ' + e.message + '. Verifica se o jsPDF carregou.');
+  }
+}
+// ══════════════════════════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════════════════════════
+
+// ══ PAINEL ADMIN ══════════════════════════════════════════════════════════
+let _adminClients = [];
+
+async function loadAdminData() {
+  if (!_sb || !_profile || _profile.role !== 'admin') {
+    showToast('⛔ Acesso negado — apenas admins.');
+    return;
+  }
+  showToast('🔄 A carregar clientes...');
+  try {
+    const { data, error } = await _sb
+      .from('cao_users')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      // Provavelmente falta a policy de admin no Supabase
+      if (error.code === 'PGRST301' || error.message?.includes('policy')) {
+        showToast('⚠️ Falta a policy de admin no Supabase. Lê o aviso na página.');
+        renderAdminDemo();
+        return;
+      }
+      throw error;
+    }
+
+    _adminClients = data || [];
+    renderAdminKpis();
+    renderAdminTable(_adminClients);
+    showToast(`✅ ${_adminClients.length} clientes carregados.`);
+  } catch(e) {
+    console.error('Admin load error:', e);
+    showToast('⚠️ Erro ao carregar. Verifica a policy admin no Supabase.');
+    renderAdminDemo();
+  }
+}
+
+function renderAdminDemo() {
+  // Dados demo para visualizar o layout sem Supabase configurado
+  _adminClients = [
+    { id: 'demo1', name: 'Ana Bento', email: 'ana@empresa.ao', company: 'EPASB-EP', plan: 'business', role: 'user', trial_ends_at: null, created_at: '2026-01-15T10:00:00Z' },
+    { id: 'demo2', name: 'Carlos Silva', email: 'carlos@pme.ao', company: 'TechAngola', plan: 'trial', role: 'user', trial_ends_at: new Date(Date.now() + 5 * 86400000).toISOString(), created_at: '2026-04-01T09:00:00Z' },
+    { id: 'demo3', name: 'Maria João', email: 'maria@conta.ao', company: 'ContaLuanda', plan: 'trial', role: 'user', trial_ends_at: new Date(Date.now() - 2 * 86400000).toISOString(), created_at: '2026-03-10T14:00:00Z' },
+    { id: 'demo4', name: 'Paulo Mateus', email: 'paulo@redes.ao', company: 'Webcor Group', plan: 'enterprise', role: 'user', trial_ends_at: null, created_at: '2025-12-01T08:00:00Z' },
+    { id: 'demo5', name: 'João Francisco', email: 'tucho@admin.ao', company: 'ConciliaçAO', plan: 'enterprise', role: 'admin', trial_ends_at: null, created_at: '2025-11-01T08:00:00Z' },
+    { id: 'demo6', name: 'Rita Domingos', email: 'rita@suspenso.ao', company: 'OldCo', plan: 'suspended', role: 'user', trial_ends_at: null, created_at: '2026-02-14T11:00:00Z' },
+  ];
+  renderAdminKpis();
+  renderAdminTable(_adminClients);
+}
+
+function renderAdminKpis() {
+  const total = _adminClients.length;
+  const now = new Date();
+  const trials = _adminClients.filter(c => c.plan === 'trial');
+  const paid = _adminClients.filter(c => c.plan === 'business' || c.plan === 'enterprise');
+  const expired = trials.filter(c => c.trial_ends_at && new Date(c.trial_ends_at) < now);
+  const activeTrial = trials.filter(c => c.trial_ends_at && new Date(c.trial_ends_at) >= now);
+
+  document.getElementById('adm-kpi-total').textContent = total;
+  document.getElementById('adm-kpi-trial').textContent = activeTrial.length;
+  document.getElementById('adm-kpi-paid').textContent = paid.length;
+  document.getElementById('adm-kpi-expired').textContent = expired.length;
+  document.getElementById('admin-client-count').textContent = `${total} cliente${total !== 1 ? 's' : ''}`;
+}
+
+function renderAdminTable(clients) {
+  const tbody = document.getElementById('admin-clients-table');
+  if (!clients || clients.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-dim)">Nenhum cliente encontrado.</td></tr>';
+    return;
+  }
+
+  const now = new Date();
+  tbody.innerHTML = clients.map(c => {
+    // Calcular estado do trial
+    let trialCell = '<span class="badge badge-blue">N/A</span>';
+    let statusBadge = '';
+    let daysLeft = null;
+
+    if (c.plan === 'trial' && c.trial_ends_at) {
+      const expiry = new Date(c.trial_ends_at);
+      daysLeft = Math.ceil((expiry - now) / 86400000);
+      const dateStr = expiry.toLocaleDateString('pt-PT');
+      if (daysLeft < 0) {
+        trialCell = `<span style="font-family:var(--font-mono);font-size:11px;color:var(--red)">${dateStr}</span><br><span class="badge badge-red" style="margin-top:3px">Expirado há ${Math.abs(daysLeft)}d</span>`;
+        statusBadge = '<span class="badge badge-red">⛔ Expirado</span>';
+      } else if (daysLeft <= 5) {
+        trialCell = `<span style="font-family:var(--font-mono);font-size:11px;color:var(--amber)">${dateStr}</span><br><span class="badge badge-amber" style="margin-top:3px">⚠️ ${daysLeft}d restantes</span>`;
+        statusBadge = '<span class="badge badge-amber">⚠️ Urgente</span>';
+      } else {
+        trialCell = `<span style="font-family:var(--font-mono);font-size:11px;color:var(--text-soft)">${dateStr}</span><br><span class="badge badge-gold" style="margin-top:3px">${daysLeft}d restantes</span>`;
+        statusBadge = '<span class="badge badge-gold">⏳ Trial activo</span>';
+      }
+    } else if (c.plan === 'business') {
+      trialCell = '<span class="badge badge-green">—</span>';
+      statusBadge = '<span class="badge badge-green">✅ Business</span>';
+    } else if (c.plan === 'enterprise') {
+      trialCell = '<span class="badge badge-blue">—</span>';
+      statusBadge = '<span class="badge badge-blue">🏢 Enterprise</span>';
+    } else if (c.plan === 'suspended') {
+      trialCell = '<span class="badge badge-red">—</span>';
+      statusBadge = '<span class="badge badge-red">⛔ Suspenso</span>';
+    }
+
+    // Plan badge
+    const planColors = { trial: 'badge-gold', business: 'badge-green', enterprise: 'badge-blue', suspended: 'badge-red' };
+    const planBadge = `<span class="badge ${planColors[c.plan] || 'badge-amber'}">${c.plan}</span>`;
+
+    // Role badge
+    const roleBadge = c.role === 'admin'
+      ? '<span class="badge badge-blue" style="font-size:9px">🛡️ ADMIN</span>'
+      : '';
+
+    return `
+    <tr>
+      <td>
+        <div style="font-weight:600;color:var(--text);font-size:13px">${c.name || '—'} ${roleBadge}</div>
+        <div style="font-size:11px;color:var(--text-dim);margin-top:2px;font-family:var(--font-mono)">${c.created_at ? new Date(c.created_at).toLocaleDateString('pt-PT') : '—'}</div>
+      </td>
+      <td class="mono" style="font-size:12px">${c.email || '—'}</td>
+      <td style="font-size:12px;color:var(--text-soft)">${c.company || '—'}</td>
+      <td>${planBadge}</td>
+      <td>${trialCell}</td>
+      <td>${statusBadge}</td>
+      <td>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-ghost" style="padding:5px 10px;font-size:11px" onclick="openAdminEdit('${c.id}')">✏️ Editar</button>
+          <button class="btn btn-success" style="padding:5px 10px;font-size:11px" onclick="quickActivate('${c.id}','business')">✅ Business</button>
+          <button class="btn btn-outline" style="padding:5px 10px;font-size:11px" onclick="quickExtendTrial('${c.id}',30)">+30d</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function filterAdminClients(q) {
+  const planFilter = document.getElementById('admin-filter-plan').value;
+  let filtered = _adminClients;
+  if (q) {
+    const lq = q.toLowerCase();
+    filtered = filtered.filter(c =>
+      (c.name || '').toLowerCase().includes(lq) ||
+      (c.email || '').toLowerCase().includes(lq) ||
+      (c.company || '').toLowerCase().includes(lq)
+    );
+  }
+  if (planFilter) {
+    filtered = filtered.filter(c => c.plan === planFilter);
+  }
+  renderAdminTable(filtered);
+}
+
+function openAdminEdit(uid) {
+  const client = _adminClients.find(c => c.id === uid);
+  if (!client) return;
+  document.getElementById('admin-edit-uid').value = uid;
+  document.getElementById('admin-edit-subtitle').textContent = `${client.name} · ${client.email} · ${client.company || '—'}`;
+  document.getElementById('admin-edit-plan').value = client.plan || 'trial';
+  document.getElementById('admin-edit-role').value = client.role || 'user';
+  // Preencher data de trial
+  const trialInput = document.getElementById('admin-edit-trial-date');
+  if (client.trial_ends_at) {
+    // Converter para formato datetime-local (YYYY-MM-DDTHH:MM)
+    const d = new Date(client.trial_ends_at);
+    const pad = n => String(n).padStart(2,'0');
+    trialInput.value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  } else {
+    // Default: 30 dias a partir de hoje
+    const d = new Date(Date.now() + 30 * 86400000);
+    const pad = n => String(n).padStart(2,'0');
+    trialInput.value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+  // Mostrar/esconder campo de data conforme o plano
+  toggleAdminTrialField();
+  document.getElementById('admin-edit-plan').onchange = toggleAdminTrialField;
+  openModal('admin-edit-modal');
+}
+
+function toggleAdminTrialField() {
+  const plan = document.getElementById('admin-edit-plan').value;
+  document.getElementById('admin-edit-trial-group').style.display = plan === 'trial' ? '' : 'none';
+}
+
+function extendTrial(days) {
+  const input = document.getElementById('admin-edit-trial-date');
+  // Se não tiver valor, parte do dia de hoje
+  const base = input.value ? new Date(input.value) : new Date();
+  base.setDate(base.getDate() + days);
+  const pad = n => String(n).padStart(2,'0');
+  input.value = `${base.getFullYear()}-${pad(base.getMonth()+1)}-${pad(base.getDate())}T${pad(base.getHours())}:${pad(base.getMinutes())}`;
+}
+
+async function saveAdminEdit() {
+  const uid = document.getElementById('admin-edit-uid').value;
+  const plan = document.getElementById('admin-edit-plan').value;
+  const role = document.getElementById('admin-edit-role').value;
+  const trialRaw = document.getElementById('admin-edit-trial-date').value;
+  const trial_ends_at = plan === 'trial' && trialRaw ? new Date(trialRaw).toISOString() : null;
+
+  if (!_sb) {
+    // Modo demo: actualizar localmente
+    const c = _adminClients.find(x => x.id === uid);
+    if (c) { c.plan = plan; c.role = role; c.trial_ends_at = trial_ends_at; }
+    closeModal('admin-edit-modal');
+    renderAdminKpis();
+    renderAdminTable(_adminClients);
+    showToast('✅ (Demo) Alterações guardadas localmente.');
+    return;
+  }
+  try {
+    const { error } = await _sb.from('cao_users').update({ plan, role, trial_ends_at }).eq('id', uid);
+    if (error) throw error;
+    // Actualizar cache local
+    const c = _adminClients.find(x => x.id === uid);
+    if (c) { c.plan = plan; c.role = role; c.trial_ends_at = trial_ends_at; }
+    closeModal('admin-edit-modal');
+    renderAdminKpis();
+    renderAdminTable(_adminClients);
+    showToast('✅ Cliente actualizado com sucesso!');
+    logAudit('Admin', `Plano de ${uid} alterado para ${plan}`);
+  } catch(e) {
+    showToast('❌ Erro ao guardar: ' + e.message);
+  }
+}
+
+async function suspendClient() {
+  const uid = document.getElementById('admin-edit-uid').value;
+  document.getElementById('admin-edit-plan').value = 'suspended';
+  document.getElementById('admin-edit-trial-date').value = '';
+  await saveAdminEdit();
+}
+
+async function quickActivate(uid, plan) {
+  if (!_sb) {
+    const c = _adminClients.find(x => x.id === uid);
+    if (c) { c.plan = plan; c.trial_ends_at = null; }
+    renderAdminKpis();
+    renderAdminTable(_adminClients);
+    showToast(`✅ (Demo) Plano ${plan} activado.`);
+    return;
+  }
+  try {
+    const { error } = await _sb.from('cao_users').update({ plan, trial_ends_at: null }).eq('id', uid);
+    if (error) throw error;
+    const c = _adminClients.find(x => x.id === uid);
+    if (c) { c.plan = plan; c.trial_ends_at = null; }
+    renderAdminKpis();
+    renderAdminTable(_adminClients);
+    showToast(`✅ Plano ${plan} activado!`);
+    logAudit('Admin', `Plano ${plan} activado para ${uid}`);
+  } catch(e) {
+    showToast('❌ Erro: ' + e.message);
+  }
+}
+
+async function quickExtendTrial(uid, days) {
+  const client = _adminClients.find(c => c.id === uid);
+  if (!client) return;
+  const base = client.trial_ends_at ? new Date(client.trial_ends_at) : new Date();
+  if (base < new Date()) base.setTime(Date.now()); // se já expirou, conta a partir de hoje
+  base.setDate(base.getDate() + days);
+  const trial_ends_at = base.toISOString();
+
+  if (!_sb) {
+    if (client) { client.plan = 'trial'; client.trial_ends_at = trial_ends_at; }
+    renderAdminKpis();
+    renderAdminTable(_adminClients);
+    showToast(`✅ (Demo) Trial extendido +${days} dias.`);
+    return;
+  }
+  try {
+    const { error } = await _sb.from('cao_users').update({ plan: 'trial', trial_ends_at }).eq('id', uid);
+    if (error) throw error;
+    if (client) { client.plan = 'trial'; client.trial_ends_at = trial_ends_at; }
+    renderAdminKpis();
+    renderAdminTable(_adminClients);
+    showToast(`✅ Trial extendido +${days} dias!`);
+    logAudit('Admin', `Trial de ${uid} extendido +${days} dias → ${base.toLocaleDateString('pt-PT')}`);
+  } catch(e) {
+    showToast('❌ Erro: ' + e.message);
+  }
+}
+// ══════════════════════════════════════════════════════════════════════════
+function logAudit(action, detail) {
+  const tbody = document.getElementById('audit-log');
+  const user = _profile?.name || _user?.email || 'Sistema';
+  const now = new Date();
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td class="mono" style="white-space:nowrap">${now.toLocaleDateString('pt-PT')} ${now.toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'})}</td><td>${user}</td><td><span class="badge badge-gold">${action}</span></td><td style="color:var(--text-soft)">${detail}</td><td class="mono" style="color:var(--text-dim)">127.0.0.1</td>`;
+  if (tbody.querySelector('td[colspan]')) tbody.innerHTML = '';
+  tbody.prepend(tr);
+}
+
+// ══ NAVEGAÇÃO ══
+const pageTitles = { 'page-dashboard': 'Dashboard', 'page-reconcile': 'Motor de Conciliação', 'page-movements': 'Movimentos Bancários', 'page-pending': 'Partidas em Aberto', 'page-accounts': 'Contas Bancárias', 'page-rules': 'Regras Automáticas', 'page-reports': 'Relatórios', 'page-audit': 'Log de Auditoria', 'page-admin': '🛡️ Painel Admin' };
+
+function switchPage(el, pageId) {
+  document.querySelectorAll('.sb-item').forEach(i => i.classList.remove('active'));
+  if (el) el.classList.add('active');
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const page = document.getElementById(pageId);
+  if (page) page.classList.add('active');
+  document.getElementById('page-title').textContent = pageTitles[pageId] || '';
+  if (pageId === 'page-reconcile') loadReconcileData();
+  if (pageId === 'page-admin') loadAdminData();
+  closeSidebar();
+}
+
+function showView(id) { document.querySelectorAll('.view').forEach(v => v.classList.remove('active')); const el = document.getElementById(id); if (el) el.classList.add('active'); }
+function openModal(id) { document.getElementById(id)?.classList.add('open'); }
+function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
+function openImportERPModal() { openModal('import-erp-modal'); }
+
+function handleERPDrop(e) {
+  e.preventDefault();
+  const file = e.dataTransfer.files[0];
+  if (file) processERPFile(file);
+}
+
+function handleERPFileSelect(e) {
+  const file = e.target.files[0];
+  if (file) processERPFile(file);
+}
+
+function processERPFile(file) {
+  document.getElementById('erp-file-name').textContent = file.name;
+  document.getElementById('erp-file-preview').style.display = '';
+  document.getElementById('erp-file-progress').style.width = '60%';
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const lines = e.target.result.split('\n').filter(l => l.trim()).length - 1;
+    document.getElementById('erp-file-info').textContent = `${lines} lançamentos detectados`;
+    document.getElementById('erp-file-progress').style.width = '100%';
+    const btn = document.getElementById('erp-import-btn');
+    btn.disabled = false;
+    btn.setAttribute('data-content', e.target.result);
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+async function processERPImport() {
+  const btn = document.getElementById('erp-import-btn');
+  const content = btn.getAttribute('data-content');
+  if (!content) { showToast('⚠️ Selecciona um ficheiro primeiro.'); return; }
+  if (!_sb || !_user) { showToast('❌ Sessão expirada. Faz login novamente.'); return; }
+  btn.textContent = 'A processar...';
+  btn.disabled = true;
+  try {
+    const lines = content.split('\n').filter(l => l.trim());
+    if (lines.length < 2) { showToast('⚠️ Ficheiro vazio ou inválido.'); btn.textContent = '⬆ Processar Lançamentos'; btn.disabled = false; return; }
+    const headers = lines[0].toLowerCase().split(/[,;|\t]/).map(h => h.trim().replace(/"/g,''));
+    const sep = lines[0].includes(';') ? ';' : lines[0].includes('\t') ? '\t' : lines[0].includes('|') ? '|' : ',';
+    const dateIdx = headers.findIndex(h => h.includes('data') || h.includes('date'));
+    const descIdx = headers.findIndex(h => h.includes('desc') || h.includes('histor') || h.includes('memo'));
+    const refIdx  = headers.findIndex(h => h.includes('ref') || h.includes('doc') || h.includes('num'));
+    const valIdx  = headers.findIndex(h => h.includes('valor') || h.includes('value') || h.includes('amount') || h.includes('mont'));
+    const entries = [];
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(sep).map(c => c.trim().replace(/^"|"$/g,''));
+      if (cols.length < 2) continue;
+      const rawVal = (cols[valIdx >= 0 ? valIdx : cols.length-1] || '0').replace(/\s/g,'').replace(',','.');
+      const amount = Math.abs(parseFloat(rawVal) || 0);
+      if (amount === 0) continue;
+      entries.push({
+        user_id: _user.id,
+        date: cols[dateIdx >= 0 ? dateIdx : 0] || new Date().toISOString().slice(0,10),
+        description: cols[descIdx >= 0 ? descIdx : 1] || 'Sem descrição',
+        reference: refIdx >= 0 ? (cols[refIdx] || null) : null,
+        amount,
+        status: 'pendente'
+      });
+    }
+    if (entries.length === 0) { showToast('⚠️ Nenhum lançamento válido encontrado.'); btn.textContent = '⬆ Processar Lançamentos'; btn.disabled = false; return; }
+    // Inserir em lotes de 500
+    const batchSize = 500;
+    for (let i = 0; i < entries.length; i += batchSize) {
+      const batch = entries.slice(i, i + batchSize);
+      const { error } = await _sb.from('cao_accounting_entries').insert(batch);
+      if (error) throw error;
+    }
+    closeModal('import-erp-modal');
+    showToast(`✅ ${entries.length} lançamentos importados!`);
+    await loadRealData();
+  } catch(e) {
+    console.error('ERP import error:', e);
+    showToast('❌ Erro ao importar: ' + e.message);
+    btn.textContent = '⬆ Processar Lançamentos';
+    btn.disabled = false;
+  }
+}
+
+function openImportModal() { openModal('import-modal'); }
+function openAddAccountModal() { openModal('add-account-modal'); }
+function openAddRuleModal() { openModal('add-rule-modal'); }
+function showToast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3500); }
+
+// ══ INIT ══
+window.addEventListener('DOMContentLoaded', () => {
+  initTheme();
+  document.getElementById('footer-year').textContent = new Date().getFullYear();
+  document.getElementById('topbar-date').textContent = new Date().toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  initSb();
+  // Fechar sidebar com swipe left (mobile)
+  let touchStartX = 0;
+  document.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; }, { passive: true });
+  document.addEventListener('touchend', e => { if (touchStartX > 20 && e.changedTouches[0].clientX - touchStartX < -60) closeSidebar(); }, { passive: true });
+  // Fechar modais com ESC
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open')); closeSidebar(); } });
+  document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); }));
+});
+</script>
+</body>
+</html>
